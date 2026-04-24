@@ -217,7 +217,7 @@ export function AddScheduleFromDayModal({
   return (
     <div className="fixed inset-0 z-50">
       <div onClick={onClose} className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
-      <div className="absolute inset-0 grid place-items-center px-4 py-6">
+      <div className="absolute inset-0 grid place-items-center p-4">
         <div className="flex w-full max-w-lg max-h-[calc(100dvh-2rem)] animate-[fade-in-up_220ms_ease-out] flex-col overflow-hidden rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] shadow-sm">
           <div className="p-6 pb-4">
             <div className="flex items-start justify-between gap-3">
@@ -455,7 +455,7 @@ export function AddScheduleFromDayModal({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-6 py-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={onClose}

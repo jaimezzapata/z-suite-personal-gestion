@@ -2,10 +2,10 @@
 @import "izitoast/dist/css/iziToast.min.css";
 
 :root {
-  --background: #fbfbfe;
+  --background: #ffffff;
   --foreground: #111827;
   --surface: #ffffff;
-  --surface-2: #f6f7ff;
+  --surface-2: #ffffff;
   --border: #e8eaf6;
   --muted: #667085;
   --primary: #6b7cff;

@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { useAuthState } from "@/features/auth/hooks/useAuthState";
 import { signOutCurrentUser } from "@/features/auth/services/authService";
+import { CurrentUserProvider } from "@/shared/auth/CurrentUserContext";
 import { AppShell } from "@/shared/ui/navigation/AppShell";
 
 type Props = {
@@ -51,12 +52,21 @@ export function ProtectedPage({ children, title }: Props) {
       }}
       onSignOut={() => signOutCurrentUser()}
     >
+      <CurrentUserProvider
+        value={{
+          uid: user.uid,
+          name: user.displayName,
+          email: user.email,
+          photoUrl: user.photoURL,
+        }}
+      >
       {title ? (
         <h1 className="mb-4 text-2xl font-semibold tracking-tight text-[color:var(--color-foreground)]">
           {title}
         </h1>
       ) : null}
       {children}
+      </CurrentUserProvider>
     </AppShell>
   );
 }

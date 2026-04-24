@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { useCompanies } from "@/features/companies/hooks/useCompanies";
 import { useScheduleEntries } from "@/features/schedules/hooks/useScheduleEntries";
 import type { InstitutionKind, ScheduleEntry, ScheduleEntryInput } from "@/features/schedules/types";
 import {
@@ -39,6 +40,10 @@ import { AddScheduleFromDayModal } from "./AddScheduleFromDayModal";
 type Props = {
   uid: string;
 };
+
+function isValidHex(value: string) {
+  return /^#([0-9A-F]{3}|[0-9A-F]{6})$/.test(value.trim().toUpperCase());
+}
 
 function institutionLabel(kind: InstitutionKind, name?: string) {
   if (kind === "OTRA") return name?.trim() ? name : "OTRA";
@@ -95,6 +100,43 @@ export function SchedulesView({ uid }: Props) {
   }, [grid]);
 
   const { entries, loading, error } = useScheduleEntries(uid, range);
+  const { companies } = useCompanies(uid);
+
+  const companiesByName = useMemo(() => {
+    const map = new Map<string, { colorKey?: string; colorHex?: string }>();
+    for (const c of companies) {
+      const key = (c.name ?? "").trim().toUpperCase();
+      if (!key) continue;
+      map.set(key, { colorKey: c.colorKey, colorHex: c.colorHex });
+    }
+    return map;
+  }, [companies]);
+
+  function colorStyleForInstitution(kind: InstitutionKind, name?: string) {
+    const label = institutionLabel(kind, name).trim().toUpperCase();
+    const c = companiesByName.get(label);
+    const hex = c?.colorHex?.trim() ? c.colorHex.trim().toUpperCase() : "";
+    if (hex && isValidHex(hex)) return { backgroundColor: hex } as const;
+    return undefined;
+  }
+
+  function bgClassForInstitution(kind: InstitutionKind, name: string | undefined, fallbackIdx: number) {
+    const label = institutionLabel(kind, name).trim().toUpperCase();
+    const c = companiesByName.get(label);
+    const k = c?.colorKey;
+    if (k === "postit-yellow") return "bg-[color:var(--postit-yellow)]";
+    if (k === "postit-blue") return "bg-[color:var(--postit-blue)]";
+    if (k === "postit-green") return "bg-[color:var(--postit-green)]";
+    if (k === "postit-purple") return "bg-[color:var(--postit-purple)]";
+    if (k === "postit-pink") return "bg-[color:var(--postit-pink)]";
+    return fallbackIdx % 4 === 0
+      ? "bg-[color:var(--postit-yellow)]"
+      : fallbackIdx % 4 === 1
+        ? "bg-[color:var(--postit-blue)]"
+        : fallbackIdx % 4 === 2
+          ? "bg-[color:var(--postit-green)]"
+          : "bg-[color:var(--postit-purple)]";
+  }
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, ScheduleEntry[]>();
@@ -541,18 +583,13 @@ export function SchedulesView({ uid }: Props) {
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {selectedEntriesSorted.map((e, idx) => {
-                const bg =
-                  idx % 4 === 0
-                    ? "bg-[color:var(--postit-yellow)]"
-                    : idx % 4 === 1
-                      ? "bg-[color:var(--postit-blue)]"
-                      : idx % 4 === 2
-                        ? "bg-[color:var(--postit-green)]"
-                        : "bg-[color:var(--postit-purple)]";
+                const style = colorStyleForInstitution(e.institutionKind, e.institutionName);
+                const bg = bgClassForInstitution(e.institutionKind, e.institutionName, idx);
 
                 return (
                   <div
                     key={e.id}
+                    style={style}
                     className={[
                       "rounded-3xl border border-[color:var(--color-border)] p-4 shadow-sm",
                       bg,
@@ -619,16 +656,31 @@ export function SchedulesView({ uid }: Props) {
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               {groupedByInstitution.map((g, idx) => {
-                const bg =
-                  idx % 3 === 0
+                const style = (() => {
+                  const c = companiesByName.get(g.institution.trim().toUpperCase());
+                  const hex = c?.colorHex?.trim() ? c.colorHex.trim().toUpperCase() : "";
+                  if (hex && isValidHex(hex)) return { backgroundColor: hex } as const;
+                  return undefined;
+                })();
+                const bg = (() => {
+                  const c = companiesByName.get(g.institution.trim().toUpperCase());
+                  const k = c?.colorKey;
+                  if (k === "postit-yellow") return "bg-[color:var(--postit-yellow)]";
+                  if (k === "postit-blue") return "bg-[color:var(--postit-blue)]";
+                  if (k === "postit-green") return "bg-[color:var(--postit-green)]";
+                  if (k === "postit-purple") return "bg-[color:var(--postit-purple)]";
+                  if (k === "postit-pink") return "bg-[color:var(--postit-pink)]";
+                  return idx % 3 === 0
                     ? "bg-[color:var(--postit-blue)]"
                     : idx % 3 === 1
                       ? "bg-[color:var(--postit-yellow)]"
                       : "bg-[color:var(--postit-green)]";
+                })();
 
                 return (
                   <div
                     key={g.institution}
+                    style={style}
                     className={[
                       "rounded-3xl border border-[color:var(--color-border)] p-4 shadow-sm",
                       bg,

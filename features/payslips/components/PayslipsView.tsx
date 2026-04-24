@@ -24,6 +24,7 @@ import { buildPeriodKey, getBiweeklyRange, getMonthlyRange } from "@/features/pa
 import { periodLabel, periodTypeLabel } from "@/features/payslips/utils/labels";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
+import { isDarkHex, isValidHex, normalizeHex } from "@/shared/utils/color";
 import { formatDate, formatMoney } from "@/shared/utils/format";
 
 type Props = {
@@ -235,14 +236,26 @@ export function PayslipsView({ uid }: Props) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {companiesForPick.map((c, idx) => {
                 const selected = c.id === selectedCompanyId;
+                const hex = c.colorHex?.trim() ? c.colorHex.trim().toUpperCase() : "";
+                const style = hex && isValidHex(hex) ? ({ backgroundColor: hex } as const) : undefined;
                 const bg =
-                  idx % 4 === 0
+                  c.colorKey === "postit-yellow"
                     ? "bg-[color:var(--postit-yellow)]"
-                    : idx % 4 === 1
+                    : c.colorKey === "postit-blue"
                       ? "bg-[color:var(--postit-blue)]"
-                      : idx % 4 === 2
+                      : c.colorKey === "postit-green"
                         ? "bg-[color:var(--postit-green)]"
-                        : "bg-[color:var(--postit-purple)]";
+                        : c.colorKey === "postit-purple"
+                          ? "bg-[color:var(--postit-purple)]"
+                          : c.colorKey === "postit-pink"
+                            ? "bg-[color:var(--postit-pink)]"
+                            : idx % 4 === 0
+                              ? "bg-[color:var(--postit-yellow)]"
+                              : idx % 4 === 1
+                                ? "bg-[color:var(--postit-blue)]"
+                                : idx % 4 === 2
+                                  ? "bg-[color:var(--postit-green)]"
+                                  : "bg-[color:var(--postit-purple)]";
 
                 const Icon = c.payType === "hourly" ? Clock : Banknote;
 
@@ -254,6 +267,7 @@ export function PayslipsView({ uid }: Props) {
                       setSelectedCompanyId(c.id);
                       if (editing) setEditing(null);
                     }}
+                    style={style}
                     className={[
                       "flex items-center gap-2 rounded-3xl border border-[color:var(--color-border)] px-3 py-3 text-left transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
                       bg,
@@ -359,18 +373,42 @@ export function PayslipsView({ uid }: Props) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {payslips.map((p, idx) => {
+          const companyForPayslip = companies.find((c) => c.id === p.companyId);
+          const hex = companyForPayslip?.colorHex?.trim()
+            ? normalizeHex(companyForPayslip.colorHex)
+            : "";
+          const hasHex = Boolean(hex && isValidHex(hex));
+          const dark = hasHex ? isDarkHex(hex) : false;
+          const style = hasHex ? ({ backgroundColor: hex } as const) : undefined;
           const bg =
-            idx % 4 === 0
-              ? "bg-[color:var(--postit-blue)]"
-              : idx % 4 === 1
-                ? "bg-[color:var(--postit-yellow)]"
-                : idx % 4 === 2
+            companyForPayslip?.colorKey === "postit-yellow"
+              ? "bg-[color:var(--postit-yellow)]"
+              : companyForPayslip?.colorKey === "postit-blue"
+                ? "bg-[color:var(--postit-blue)]"
+                : companyForPayslip?.colorKey === "postit-green"
                   ? "bg-[color:var(--postit-green)]"
-                  : "bg-[color:var(--postit-purple)]";
+                  : companyForPayslip?.colorKey === "postit-purple"
+                    ? "bg-[color:var(--postit-purple)]"
+                    : companyForPayslip?.colorKey === "postit-pink"
+                      ? "bg-[color:var(--postit-pink)]"
+                      : idx % 4 === 0
+                        ? "bg-[color:var(--postit-blue)]"
+                        : idx % 4 === 1
+                          ? "bg-[color:var(--postit-yellow)]"
+                          : idx % 4 === 2
+                            ? "bg-[color:var(--postit-green)]"
+                            : "bg-[color:var(--postit-purple)]";
+
+          const titleClass = dark ? "text-white" : "text-[color:var(--color-foreground)]";
+          const mutedClass = dark ? "text-white/80" : "text-[color:var(--color-muted)]";
+          const iconButtonClass = dark
+            ? "border-white/40 bg-white/90 text-[color:var(--color-foreground)]"
+            : "border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)]";
 
           return (
             <div
               key={p.id}
+              style={style}
               className={[
                 "rounded-3xl border border-[color:var(--color-border)] p-4 shadow-sm",
                 bg,
@@ -378,25 +416,25 @@ export function PayslipsView({ uid }: Props) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate text-base font-semibold text-[color:var(--color-foreground)]">
+                  <div className={["truncate text-base font-semibold", titleClass].join(" ")}>
                     {p.companyName}
                   </div>
-                  <div className="mt-1 text-xs font-semibold text-[color:var(--color-muted)]">
+                  <div className={["mt-1 text-xs font-semibold", mutedClass].join(" ")}>
                     {p.periodType === "biweekly"
                       ? `Q${p.periodStart.toDate().getDate() <= 15 ? "1" : "2"}`
                       : "MES"}{" "}
                     · {periodLabel(p)}
                   </div>
-                  <div className="mt-2 text-sm font-semibold text-[color:var(--color-foreground)]">
+                  <div className={["mt-2 text-sm font-semibold", titleClass].join(" ")}>
                     {formatMoney(p.amount, p.currency)}
                   </div>
                   {p.createdAt ? (
-                    <div className="mt-2 text-xs text-[color:var(--color-muted)]">
+                    <div className={["mt-2 text-xs", mutedClass].join(" ")}>
                       REGISTRO: {formatDate(p.createdAt.toDate())}
                     </div>
                   ) : null}
                   {p.notes ? (
-                    <div className="mt-2 max-h-10 overflow-hidden text-xs text-[color:var(--color-muted)]">
+                    <div className={["mt-2 max-h-10 overflow-hidden text-xs", mutedClass].join(" ")}>
                       {p.notes}
                     </div>
                   ) : null}
@@ -413,7 +451,10 @@ export function PayslipsView({ uid }: Props) {
                         p.periodStart.toDate().getDate() <= 15 ? 1 : 2,
                       );
                     }}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/70 text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]"
+                    className={[
+                      "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
+                      iconButtonClass,
+                    ].join(" ")}
                     aria-label="Editar"
                   >
                     <Pencil className="h-4 w-4" />
@@ -422,7 +463,10 @@ export function PayslipsView({ uid }: Props) {
                     type="button"
                     onClick={() => handleDelete(p)}
                     disabled={busyId === p.id}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/70 text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+                    className={[
+                      "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60",
+                      iconButtonClass,
+                    ].join(" ")}
                     aria-label="Eliminar"
                   >
                     <Trash2 className="h-4 w-4" />

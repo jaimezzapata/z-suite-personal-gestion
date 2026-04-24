@@ -23,6 +23,8 @@ type CompanyDoc = {
   payType: Company["payType"];
   payFrequency: Company["payFrequency"];
   currency?: Company["currency"];
+  colorKey?: Company["colorKey"] | null;
+  colorHex?: string | null;
   active?: boolean;
   contractStartDate?: Timestamp | null;
   contractEndDate?: Timestamp | null;
@@ -64,6 +66,8 @@ export function useCompanies(uid: string | null | undefined): CompaniesState {
             payType: data.payType,
             payFrequency: data.payFrequency,
             currency: data.currency ?? "COP",
+            colorKey: data.colorKey ?? undefined,
+            colorHex: data.colorHex ?? undefined,
             active: data.active ?? true,
             contractStartDate: data.contractStartDate ?? undefined,
             contractEndDate: data.contractEndDate ?? undefined,

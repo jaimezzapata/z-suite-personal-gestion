@@ -4,6 +4,13 @@ export type PayType = "fixed" | "hourly";
 export type PayFrequency = "biweekly" | "monthly";
 export type Currency = "COP" | "USD";
 
+export type CompanyColorKey =
+  | "postit-yellow"
+  | "postit-blue"
+  | "postit-green"
+  | "postit-purple"
+  | "postit-pink";
+
 export type Company = {
   id: string;
   name: string;
@@ -12,6 +19,8 @@ export type Company = {
   hourlyRate?: number;
   fixedSalary?: number;
   currency: Currency;
+  colorKey?: CompanyColorKey;
+  colorHex?: string;
   active: boolean;
   contractStartDate?: Timestamp;
   contractEndDate?: Timestamp | null;
@@ -27,6 +36,8 @@ export type CompanyInput = {
   hourlyRate?: number;
   fixedSalary?: number;
   currency: Currency;
+  colorKey?: CompanyColorKey;
+  colorHex?: string;
   active: boolean;
   contractStartDate?: Date;
   contractEndDate?: Date | null;

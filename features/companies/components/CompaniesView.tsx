@@ -22,6 +22,10 @@ type Props = {
   uid: string;
 };
 
+function isValidHex(value: string) {
+  return /^#([0-9A-F]{3}|[0-9A-F]{6})$/.test(value.trim().toUpperCase());
+}
+
 export function CompaniesView({ uid }: Props) {
   const { companies, loading, error } = useCompanies(uid);
   const [modalOpen, setModalOpen] = useState(false);
@@ -159,18 +163,31 @@ export function CompaniesView({ uid }: Props) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {companies.map((c, idx) => {
+          const hex = c.colorHex?.trim() ? c.colorHex.trim().toUpperCase() : "";
+          const style = hex && isValidHex(hex) ? ({ backgroundColor: hex } as const) : undefined;
           const bg =
-            idx % 4 === 0
+            c.colorKey === "postit-yellow"
               ? "bg-[color:var(--postit-yellow)]"
-              : idx % 4 === 1
+              : c.colorKey === "postit-blue"
                 ? "bg-[color:var(--postit-blue)]"
-                : idx % 4 === 2
+                : c.colorKey === "postit-green"
                   ? "bg-[color:var(--postit-green)]"
-                  : "bg-[color:var(--postit-purple)]";
+                  : c.colorKey === "postit-purple"
+                    ? "bg-[color:var(--postit-purple)]"
+                    : c.colorKey === "postit-pink"
+                      ? "bg-[color:var(--postit-pink)]"
+                      : idx % 4 === 0
+                        ? "bg-[color:var(--postit-yellow)]"
+                        : idx % 4 === 1
+                          ? "bg-[color:var(--postit-blue)]"
+                          : idx % 4 === 2
+                            ? "bg-[color:var(--postit-green)]"
+                            : "bg-[color:var(--postit-purple)]";
 
           return (
             <div
               key={c.id}
+              style={style}
               className={[
                 "rounded-3xl border border-[color:var(--color-border)] p-4 shadow-sm",
                 bg,

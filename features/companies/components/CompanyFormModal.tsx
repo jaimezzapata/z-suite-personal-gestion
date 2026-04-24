@@ -3,11 +3,19 @@
 import { Building2, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-import type { Company, CompanyInput, PayFrequency, PayType } from "@/features/companies/types";
+import type {
+  Company,
+  CompanyColorKey,
+  CompanyInput,
+  PayFrequency,
+  PayType,
+} from "@/features/companies/types";
 import { useCompanySalaryHistory } from "@/features/companies/hooks/useCompanySalaryHistory";
 import { parseISODateInput, timestampToISODateInput } from "@/shared/utils/date";
+import { isValidHex, normalizeHex } from "@/shared/utils/color";
 import { normalizeUpper } from "@/shared/utils/text";
 import { formatDate, formatMoney } from "@/shared/utils/format";
+import { toast } from "@/shared/ui/toast";
 
 type Props = {
   open: boolean;
@@ -30,6 +38,8 @@ export function CompanyFormModal({
   const [payType, setPayType] = useState<PayType>("fixed");
   const [payFrequency, setPayFrequency] = useState<PayFrequency>("biweekly");
   const [currency, setCurrency] = useState<CompanyInput["currency"]>("COP");
+  const [colorKey, setColorKey] = useState<CompanyColorKey>("postit-yellow");
+  const [colorHex, setColorHex] = useState("");
   const [active, setActive] = useState(true);
   const [contractStartDate, setContractStartDate] = useState<string>("");
   const [contractEndDate, setContractEndDate] = useState<string>("");
@@ -61,6 +71,8 @@ export function CompanyFormModal({
       setPayType(initial.payType);
       setPayFrequency(initial.payFrequency);
       setCurrency(initial.currency ?? "COP");
+      setColorKey(initial.colorKey ?? "postit-yellow");
+      setColorHex(initial.colorHex ?? "");
       setActive(initial.active ?? true);
       setContractStartDate(
         initial.contractStartDate ? timestampToISODateInput(initial.contractStartDate) : "",
@@ -84,6 +96,8 @@ export function CompanyFormModal({
       setPayType("fixed");
       setPayFrequency("biweekly");
       setCurrency("COP");
+      setColorKey("postit-yellow");
+      setColorHex("");
       setActive(true);
       setContractStartDate("");
       setContractEndDate("");
@@ -106,6 +120,11 @@ export function CompanyFormModal({
     if (!canSubmit) return;
     setLoading(true);
     try {
+      const normalizedHex = normalizeHex(colorHex);
+      if (normalizedHex && !isValidHex(normalizedHex)) {
+        toast.error({ title: "Color inválido", message: "Usa formato #RGB o #RRGGBB" });
+        return;
+      }
       const startDate = parseISODateInput(contractStartDate);
       const endDate = contractEndDate ? parseISODateInput(contractEndDate) : undefined;
 
@@ -114,6 +133,8 @@ export function CompanyFormModal({
         payType,
         payFrequency,
         currency,
+        colorKey,
+        colorHex: normalizedHex ? normalizedHex : undefined,
         active,
         contractStartDate: startDate,
         contractEndDate: endDate ?? null,
@@ -137,9 +158,10 @@ export function CompanyFormModal({
         onClick={onClose}
         className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
       />
-      <div className="absolute inset-0 grid place-items-center px-4 py-10">
-        <div className="w-full max-w-md animate-[fade-in-up_220ms_ease-out] rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-6 shadow-sm">
-          <div className="mb-5 flex items-start justify-between gap-3">
+      <div className="absolute inset-0 grid place-items-center p-4">
+        <div className="flex w-full max-w-md max-h-[calc(100dvh-2rem)] animate-[fade-in-up_220ms_ease-out] flex-col overflow-hidden rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] shadow-sm">
+          <div className="p-6 pb-4">
+            <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="grid h-10 w-10 place-items-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--postit-yellow)]">
                 <Building2 className="h-5 w-5 text-[color:var(--color-foreground)]" />
@@ -162,9 +184,11 @@ export function CompanyFormModal({
               <X className="h-5 w-5" />
             </button>
           </div>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
+          <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
+              <div className="space-y-1">
               <label className="text-sm font-medium text-[color:var(--color-foreground)]">
                 Nombre
               </label>
@@ -175,6 +199,72 @@ export function CompanyFormModal({
                 placeholder="Ej. CESDE"
                 className="h-11 w-full rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm text-[color:var(--color-foreground)] outline-none transition-colors duration-150 placeholder:text-[color:var(--color-muted)] focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[color:var(--color-foreground)]">
+                Color
+              </label>
+              <div className="grid grid-cols-5 gap-2">
+                {(
+                  [
+                    "postit-yellow",
+                    "postit-blue",
+                    "postit-green",
+                    "postit-purple",
+                    "postit-pink",
+                  ] as CompanyColorKey[]
+                ).map((k) => {
+                  const selected = colorKey === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => {
+                        setColorKey(k);
+                        setColorHex("");
+                      }}
+                      aria-pressed={selected}
+                      className={[
+                        "h-11 rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
+                        selected
+                          ? "border-[color:var(--color-primary)] ring-4 ring-[color:var(--primary-ring)]"
+                          : "border-[color:var(--color-border)]",
+                        k === "postit-yellow"
+                          ? "bg-[color:var(--postit-yellow)]"
+                          : k === "postit-blue"
+                            ? "bg-[color:var(--postit-blue)]"
+                            : k === "postit-green"
+                              ? "bg-[color:var(--postit-green)]"
+                              : k === "postit-purple"
+                                ? "bg-[color:var(--postit-purple)]"
+                                : "bg-[color:var(--postit-pink)]",
+                      ].join(" ")}
+                    />
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-11 w-11 rounded-2xl border border-[color:var(--color-border)]"
+                  style={{
+                    backgroundColor: isValidHex(normalizeHex(colorHex))
+                      ? normalizeHex(colorHex)
+                      : undefined,
+                  }}
+                />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <label className="text-xs font-semibold text-[color:var(--color-muted)]">
+                    Hex (opcional)
+                  </label>
+                  <input
+                    value={colorHex}
+                    onChange={(e) => setColorHex(normalizeHex(e.target.value))}
+                    placeholder="#AABBCC"
+                    className="h-11 w-full rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none transition-colors duration-150 placeholder:text-[color:var(--color-muted)] focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -345,7 +435,8 @@ export function CompanyFormModal({
               </div>
             ) : null}
 
-            <div className="flex items-center justify-end gap-2 pt-1">
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 onClick={onClose}
