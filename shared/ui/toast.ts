@@ -20,8 +20,7 @@ async function getIziToast(): Promise<Record<string, unknown> | null> {
 function show(kind: ToastKind, { title, message }: ToastOptions) {
   void getIziToast().then((iziToast) => {
     if (!iziToast) return;
-    const fn = iziToast[kind] as unknown as (opts: Record<string, unknown>) => void;
-    fn({
+    const opts = {
       title,
       message,
       position: "topRight",
@@ -30,7 +29,18 @@ function show(kind: ToastKind, { title, message }: ToastOptions) {
       closeOnClick: true,
       pauseOnHover: true,
       progressBar: true,
-    });
+    } as Record<string, unknown>;
+
+    const themed = (iziToast as any)[kind];
+    if (typeof themed === "function") {
+      themed.call(iziToast, opts);
+      return;
+    }
+
+    const fallbackShow = (iziToast as any).show;
+    if (typeof fallbackShow === "function") {
+      fallbackShow.call(iziToast, { ...opts, color: kind });
+    }
   });
 }
 
