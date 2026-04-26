@@ -14,6 +14,7 @@ import {
 import { payFrequencyLabel, payTypeLabel } from "@/features/companies/utils/labels";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
+import { isValidHex, normalizeHex } from "@/shared/utils/color";
 import { formatDate, formatMoney } from "@/shared/utils/format";
 
 import { CompanyFormModal } from "./CompanyFormModal";
@@ -21,10 +22,6 @@ import { CompanyFormModal } from "./CompanyFormModal";
 type Props = {
   uid: string;
 };
-
-function isValidHex(value: string) {
-  return /^#([0-9A-F]{3}|[0-9A-F]{6})$/.test(value.trim().toUpperCase());
-}
 
 export function CompaniesView({ uid }: Props) {
   const { companies, loading, error } = useCompanies(uid);
@@ -163,7 +160,7 @@ export function CompaniesView({ uid }: Props) {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {companies.map((c, idx) => {
-          const hex = c.colorHex?.trim() ? c.colorHex.trim().toUpperCase() : "";
+          const hex = c.colorHex?.trim() ? normalizeHex(c.colorHex) : "";
           const style = hex && isValidHex(hex) ? ({ backgroundColor: hex } as const) : undefined;
           const bg =
             c.colorKey === "postit-yellow"
@@ -184,6 +181,12 @@ export function CompaniesView({ uid }: Props) {
                             ? "bg-[color:var(--postit-green)]"
                             : "bg-[color:var(--postit-purple)]";
 
+          const titleClass = "text-white";
+          const mutedClass = "text-white/85";
+          const badgeClass = "border-white/35 bg-white/20 text-white";
+          const iconButtonClass =
+            "border-white/35 bg-white/90 text-[color:var(--color-foreground)]";
+
           return (
             <div
               key={c.id}
@@ -195,30 +198,30 @@ export function CompaniesView({ uid }: Props) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate text-base font-semibold text-[color:var(--color-foreground)]">
+                  <div className={["truncate text-base font-semibold", titleClass].join(" ")}>
                     {c.name}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[color:var(--color-muted)]">
+                  <div className={["mt-1 flex flex-wrap items-center gap-2 text-sm", mutedClass].join(" ")}>
                     <span>
                       {payTypeLabel(c.payType)} · {payFrequencyLabel(c.payFrequency)}
                     </span>
-                    <span className="rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/60 px-2 py-0.5 text-xs font-semibold text-[color:var(--color-foreground)]">
+                    <span className={["rounded-full border px-2 py-0.5 text-xs font-semibold", badgeClass].join(" ")}>
                       {c.active ? "ACTIVA" : "INACTIVA"}
                     </span>
                   </div>
                   {c.payType === "hourly" && typeof c.hourlyRate === "number" ? (
-                    <div className="mt-2 text-sm font-semibold text-[color:var(--color-foreground)]">
+                    <div className={["mt-2 text-sm font-semibold", titleClass].join(" ")}>
                       {formatMoney(c.hourlyRate, c.currency)} / hora
                     </div>
                   ) : c.payType === "fixed" &&
                     typeof c.fixedSalary === "number" ? (
-                    <div className="mt-2 text-sm font-semibold text-[color:var(--color-foreground)]">
+                    <div className={["mt-2 text-sm font-semibold", titleClass].join(" ")}>
                       {formatMoney(c.fixedSalary, c.currency)}
                     </div>
                   ) : null}
 
                   {c.contractStartDate ? (
-                    <div className="mt-2 text-xs text-[color:var(--color-muted)]">
+                    <div className={["mt-2 text-xs", mutedClass].join(" ")}>
                       INICIO: {formatDate(c.contractStartDate.toDate())}
                       {c.contractEndDate ? (
                         <> · FIN: {formatDate(c.contractEndDate.toDate())}</>
@@ -227,7 +230,7 @@ export function CompaniesView({ uid }: Props) {
                   ) : null}
 
                   {c.notes ? (
-                    <div className="mt-2 max-h-10 overflow-hidden text-xs text-[color:var(--color-muted)]">
+                    <div className={["mt-2 max-h-10 overflow-hidden text-xs", mutedClass].join(" ")}>
                       {c.notes}
                     </div>
                   ) : null}
@@ -237,7 +240,10 @@ export function CompaniesView({ uid }: Props) {
                     type="button"
                     onClick={() => handleToggleActive(c)}
                     disabled={busyId === c.id}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/70 text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+                    className={[
+                      "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60",
+                      iconButtonClass,
+                    ].join(" ")}
                     aria-label={c.active ? "Desactivar" : "Activar"}
                     title={c.active ? "Desactivar" : "Activar"}
                   >
@@ -253,7 +259,10 @@ export function CompaniesView({ uid }: Props) {
                       setEditing(c);
                       setModalOpen(true);
                     }}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/70 text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]"
+                    className={[
+                      "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
+                      iconButtonClass,
+                    ].join(" ")}
                     aria-label="Editar"
                   >
                     <Pencil className="h-4 w-4" />
@@ -262,7 +271,10 @@ export function CompaniesView({ uid }: Props) {
                     type="button"
                     onClick={() => handleDelete(c)}
                     disabled={busyId === c.id}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/70 text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+                    className={[
+                      "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60",
+                      iconButtonClass,
+                    ].join(" ")}
                     aria-label="Eliminar"
                   >
                     <Trash2 className="h-4 w-4" />

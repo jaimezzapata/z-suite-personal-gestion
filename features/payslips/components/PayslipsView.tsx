@@ -236,8 +236,9 @@ export function PayslipsView({ uid }: Props) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {companiesForPick.map((c, idx) => {
                 const selected = c.id === selectedCompanyId;
-                const hex = c.colorHex?.trim() ? c.colorHex.trim().toUpperCase() : "";
-                const style = hex && isValidHex(hex) ? ({ backgroundColor: hex } as const) : undefined;
+                const hex = c.colorHex?.trim() ? normalizeHex(c.colorHex) : "";
+                const hasHex = Boolean(hex && isValidHex(hex));
+                const style = hasHex ? ({ backgroundColor: hex } as const) : undefined;
                 const bg =
                   c.colorKey === "postit-yellow"
                     ? "bg-[color:var(--postit-yellow)]"
@@ -259,6 +260,11 @@ export function PayslipsView({ uid }: Props) {
 
                 const Icon = c.payType === "hourly" ? Clock : Banknote;
 
+                const titleClass = "text-white";
+                const mutedClass = "text-white/85";
+                const iconWrapClass = "border-white/35 bg-white/90";
+                const borderClass = "border-white/25";
+
                 return (
                   <button
                     key={c.id}
@@ -269,19 +275,20 @@ export function PayslipsView({ uid }: Props) {
                     }}
                     style={style}
                     className={[
-                      "flex items-center gap-2 rounded-3xl border border-[color:var(--color-border)] px-3 py-3 text-left transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
+                      "flex items-center gap-2 rounded-3xl border px-3 py-3 text-left transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
                       bg,
+                      borderClass,
                       selected ? "ring-4 ring-[color:var(--primary-ring)]" : "",
                     ].join(" ")}
                   >
-                    <span className="grid h-10 w-10 place-items-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/75">
+                    <span className={["grid h-10 w-10 place-items-center rounded-2xl border", iconWrapClass].join(" ")}>
                       <Icon className="h-5 w-5 text-[color:var(--color-foreground)]" />
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-[color:var(--color-foreground)]">
+                      <span className={["block truncate text-sm font-semibold", titleClass].join(" ")}>
                         {c.name}
                       </span>
-                      <span className="block truncate text-xs text-[color:var(--color-muted)]">
+                      <span className={["block truncate text-xs", mutedClass].join(" ")}>
                         {c.payFrequency === "monthly" ? "MENSUAL" : "QUINCENAL"}
                       </span>
                     </span>
