@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, Coins } from "lucide-react";
+import { CalendarDays, Coins, FileSpreadsheet, FileText } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useCompanies } from "@/features/companies/hooks/useCompanies";
@@ -9,6 +9,7 @@ import { useScheduleEntries } from "@/features/schedules/hooks/useScheduleEntrie
 import { dateKeyFromParts, parseDateKey } from "@/features/schedules/utils/dateKey";
 import { minutesPerHourUnit, minutesToTime } from "@/features/schedules/utils/time";
 import { useCurrentUser } from "@/shared/auth/CurrentUserContext";
+import { toast } from "@/shared/ui/toast";
 import { formatMoney } from "@/shared/utils/format";
 import { normalizeUpper } from "@/shared/utils/text";
 
@@ -70,6 +71,7 @@ type DetailItem = {
   endMinutes: number;
   hours: number;
   currency: Company["currency"];
+  hourlyRate: number;
   payAmount: number;
 };
 
@@ -143,6 +145,7 @@ function computePaySummary(
       endMinutes: e.endMinutes,
       hours: round2(hours),
       currency: company.currency,
+      hourlyRate: company.hourlyRate,
       payAmount,
     });
     detailsByDate.set(e.dateKey, group);
@@ -182,9 +185,16 @@ export function HoursView() {
 
   const [baseKey, setBaseKey] = useState("2000-01-01");
   const [detailMode, setDetailMode] = useState<"day" | "week" | "biweekly" | "month">("day");
+  const [reportStartKey, setReportStartKey] = useState("2000-01-01");
+  const [reportEndKey, setReportEndKey] = useState("2000-01-01");
+  const [exporting, setExporting] = useState<null | "excel" | "pdf">(null);
 
   useEffect(() => {
-    setBaseKey(dateKeyFromDate(new Date()));
+    const now = new Date();
+    const today = dateKeyFromDate(now);
+    setBaseKey(today);
+    setReportEndKey(today);
+    setReportStartKey(dateKeyFromParts(now.getFullYear(), now.getMonth() + 1, 1));
   }, []);
 
   const baseParts = useMemo(() => parseDateKey(baseKey), [baseKey]);
@@ -218,8 +228,17 @@ export function HoursView() {
   const biweekly = useScheduleEntries(uid, ranges.biweekly);
   const month = useScheduleEntries(uid, ranges.month);
 
+  const reportRange = useMemo(() => {
+    const start = reportStartKey;
+    const end = reportEndKey;
+    if (start <= end) return { startKey: start, endKey: end };
+    return { startKey: end, endKey: start };
+  }, [reportEndKey, reportStartKey]);
+
+  const report = useScheduleEntries(uid, reportRange);
+
   const loading =
-    companiesLoading || day.loading || week.loading || biweekly.loading || month.loading;
+    companiesLoading || day.loading || week.loading || biweekly.loading || month.loading || report.loading;
 
   const hourlyCompanies = useMemo(() => {
     return companies.filter((c) => {
@@ -247,7 +266,190 @@ export function HoursView() {
     [hourlyCompanies, month.entries],
   );
 
-  const anyError = day.error ?? week.error ?? biweekly.error ?? month.error;
+  const reportPay = useMemo(
+    () => computePaySummary(report.entries, hourlyCompanies),
+    [hourlyCompanies, report.entries],
+  );
+
+  const anyError = day.error ?? week.error ?? biweekly.error ?? month.error ?? report.error;
+
+  async function downloadExcel() {
+    if (exporting) return;
+    if (!hourlyCompanies.length) {
+      toast.info({ title: "Sin empresas por hora", message: "Configura empresas con pago por hora para generar reporte." });
+      return;
+    }
+    if (!reportPay.details.length) {
+      toast.info({ title: "Sin datos", message: "No hay horarios (por hora) en el rango del reporte." });
+      return;
+    }
+    setExporting("excel");
+    try {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.utils.book_new();
+
+      const totalCop = reportPay.totalPay.COP ?? 0;
+      const totalUsd = reportPay.totalPay.USD ?? 0;
+
+      const summaryRows: Array<Record<string, string | number>> = [];
+      summaryRows.push({ Campo: "Reporte", Valor: "Pago por horas (solo empresas por hora)" });
+      summaryRows.push({ Campo: "Rango", Valor: `${reportRange.startKey} → ${reportRange.endKey}` });
+      summaryRows.push({ Campo: "Generado", Valor: new Date().toISOString().slice(0, 19).replace("T", " ") });
+      summaryRows.push({ Campo: "Total horas", Valor: reportPay.totalHours });
+      summaryRows.push({ Campo: "Total COP", Valor: totalCop });
+      summaryRows.push({ Campo: "Total USD", Valor: totalUsd });
+      summaryRows.push({ Campo: "", Valor: "" });
+
+      for (const r of reportPay.rows) {
+        summaryRows.push({
+          Empresa: r.label,
+          Horas: r.hours,
+          COP: r.pay.COP ?? 0,
+          USD: r.pay.USD ?? 0,
+        });
+      }
+
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows, { skipHeader: false });
+      wsSummary["!cols"] = [{ wch: 18 }, { wch: 44 }, { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen");
+
+      const details = reportPay.details.flatMap((g) =>
+        g.items.map((it) => ({
+          Fecha: it.dateKey,
+          Empresa: it.label,
+          Materia: it.subject,
+          Inicio: minutesToTime(it.startMinutes),
+          Fin: minutesToTime(it.endMinutes),
+          Horas: it.hours,
+          "Valor hora": it.hourlyRate,
+          Moneda: it.currency,
+          Pago: round2(it.payAmount),
+        })),
+      );
+
+      const wsDetails = XLSX.utils.json_to_sheet(details, { skipHeader: false });
+      wsDetails["!cols"] = [
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 30 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 12 },
+        { wch: 8 },
+        { wch: 14 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsDetails, "Detalle");
+
+      const filename = `reporte_horas_${reportRange.startKey}_a_${reportRange.endKey}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success({ title: "Listo", message: "Reporte Excel descargado" });
+    } catch (e) {
+      toast.error({ title: "Error", message: e instanceof Error ? e.message : "No se pudo exportar Excel" });
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function downloadPdf() {
+    if (exporting) return;
+    if (!hourlyCompanies.length) {
+      toast.info({ title: "Sin empresas por hora", message: "Configura empresas con pago por hora para generar reporte." });
+      return;
+    }
+    if (!reportPay.details.length) {
+      toast.info({ title: "Sin datos", message: "No hay horarios (por hora) en el rango del reporte." });
+      return;
+    }
+    setExporting("pdf");
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTableMod = await import("jspdf-autotable");
+      const autoTable: unknown = (autoTableMod as { default?: unknown }).default ?? autoTableMod;
+
+      const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("Reporte de pago por horas", 40, 48);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Rango: ${reportRange.startKey} → ${reportRange.endKey}`, 40, 66);
+      doc.text(`Generado: ${new Date().toISOString().slice(0, 19).replace("T", " ")}`, 40, 80);
+
+      const totalCop = reportPay.totalPay.COP ?? 0;
+      const totalUsd = reportPay.totalPay.USD ?? 0;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Resumen", 40, 108);
+
+      const summaryBody = [
+        ["Total horas", String(reportPay.totalHours)],
+        ["Total COP", formatMoney(totalCop, "COP")],
+        ["Total USD", formatMoney(totalUsd, "USD")],
+      ];
+
+      if (typeof autoTable === "function") {
+        (autoTable as (d: unknown, opts: unknown) => void)(doc, {
+          startY: 118,
+          head: [["Campo", "Valor"]],
+          body: summaryBody,
+          styles: { fontSize: 10, cellPadding: 6 },
+          headStyles: { fillColor: [107, 124, 255], textColor: 255 },
+          alternateRowStyles: { fillColor: [246, 247, 255] },
+          theme: "grid",
+          margin: { left: 40, right: 40 },
+        });
+
+        const detailHead = [["Fecha", "Empresa", "Materia", "Horario", "Horas", "Valor hora", "Moneda", "Pago"]];
+        const detailBody = reportPay.details.flatMap((g) =>
+          g.items.map((it) => [
+            it.dateKey,
+            it.label,
+            it.subject || "—",
+            `${minutesToTime(it.startMinutes)}-${minutesToTime(it.endMinutes)}`,
+            String(it.hours),
+            String(it.hourlyRate),
+            it.currency,
+            it.currency === "USD" ? formatMoney(it.payAmount, "USD") : formatMoney(it.payAmount, "COP"),
+          ]),
+        );
+
+        (autoTable as (d: unknown, opts: unknown) => void)(doc, {
+          startY: (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY
+            ? (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 18
+            : 160,
+          head: detailHead,
+          body: detailBody,
+          styles: { fontSize: 8, cellPadding: 4, overflow: "linebreak" },
+          headStyles: { fillColor: [17, 24, 39], textColor: 255 },
+          alternateRowStyles: { fillColor: [250, 250, 252] },
+          theme: "grid",
+          margin: { left: 40, right: 40 },
+          columnStyles: {
+            0: { cellWidth: 58 },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 150 },
+            3: { cellWidth: 58 },
+            4: { cellWidth: 38, halign: "right" },
+            5: { cellWidth: 52, halign: "right" },
+            6: { cellWidth: 38 },
+            7: { cellWidth: pageWidth - 40 - 40 - (58 + 70 + 150 + 58 + 38 + 52 + 38), halign: "right" },
+          },
+        });
+      }
+
+      const filename = `reporte_horas_${reportRange.startKey}_a_${reportRange.endKey}.pdf`;
+      doc.save(filename);
+      toast.success({ title: "Listo", message: "Reporte PDF descargado" });
+    } catch (e) {
+      toast.error({ title: "Error", message: e instanceof Error ? e.message : "No se pudo exportar PDF" });
+    } finally {
+      setExporting(null);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -275,6 +477,67 @@ export function HoursView() {
             className="h-8 bg-transparent text-sm font-semibold text-[color:var(--color-foreground)] outline-none"
           />
         </label>
+      </div>
+
+      <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
+              Reporte
+            </div>
+            <div className="text-xs text-[color:var(--color-muted)]">
+              Exporta Excel o PDF desde una fecha de inicio.
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex flex-col gap-1">
+              <div className="text-xs font-semibold text-[color:var(--color-muted)]">
+                Inicio
+              </div>
+              <input
+                value={reportStartKey}
+                onChange={(e) => setReportStartKey(e.target.value)}
+                type="date"
+                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="text-xs font-semibold text-[color:var(--color-muted)]">
+                Fin
+              </div>
+              <input
+                value={reportEndKey}
+                onChange={(e) => setReportEndKey(e.target.value)}
+                type="date"
+                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void downloadExcel()}
+              disabled={exporting !== null}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-4 text-sm font-extrabold text-[color:var(--color-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => void downloadPdf()}
+              disabled={exporting !== null}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-primary)] px-4 text-sm font-extrabold text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+            >
+              <FileText className="h-4 w-4" />
+              PDF
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 text-xs font-semibold text-[color:var(--color-muted)]">
+          Rango actual: {reportRange.startKey} → {reportRange.endKey}
+        </div>
       </div>
 
       {anyError ? (
