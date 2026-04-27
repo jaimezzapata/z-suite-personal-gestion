@@ -192,18 +192,19 @@ export function DeleteGroupModal({ open, uid, template, onClose }: Props) {
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-4 text-sm font-semibold text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)] disabled:opacity-60"
+                aria-label="Cancelar"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)] disabled:opacity-60"
               >
-                Cancelar
+                <X className="h-4 w-4" />
               </button>
               <button
                 type="button"
                 onClick={() => void handleDeleteGroup()}
                 disabled={loading || !canSubmit}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[color:var(--color-danger)] px-4 text-sm font-semibold text-white shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+                aria-label="Eliminar grupo"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--color-danger)] text-white shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
               >
                 <Trash2 className="h-4 w-4" />
-                Eliminar grupo
               </button>
             </div>
           </div>

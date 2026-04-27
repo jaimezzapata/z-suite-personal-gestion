@@ -157,10 +157,10 @@ export function ExpensesView({ uid }: Props) {
           <button
             type="button"
             onClick={() => setConfigOpen(true)}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-4 text-sm font-semibold text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)]"
+            aria-label="Configuración"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)]"
           >
             <SlidersHorizontal className="h-4 w-4" />
-            Configuración
           </button>
           <button
             type="button"
@@ -168,10 +168,10 @@ export function ExpensesView({ uid }: Props) {
               setEditing(null);
               setModalOpen(true);
             }}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-primary)] px-4 text-sm font-semibold text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]"
+            aria-label="Nuevo gasto"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]"
           >
             <Plus className="h-4 w-4" />
-            Nuevo gasto
           </button>
         </div>
       </div>

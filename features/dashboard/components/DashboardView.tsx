@@ -195,6 +195,105 @@ function BarList({
   );
 }
 
+function RingGauge({
+  value,
+  max,
+  color,
+}: {
+  value: number;
+  max: number;
+  color: string;
+}) {
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => setAnimate(true), []);
+
+  const v = Number.isFinite(value) ? Math.max(0, value) : 0;
+  const m = Number.isFinite(max) ? Math.max(0, max) : 0;
+  const pct = m <= 0 ? 0 : Math.min(1, v / m);
+  const r = 16;
+  const c = 2 * Math.PI * r;
+  const dash = c;
+  const offset = animate ? c * (1 - pct) : c;
+
+  return (
+    <svg viewBox="0 0 40 40" className="h-10 w-10">
+      <circle
+        cx="20"
+        cy="20"
+        r={r}
+        fill="none"
+        stroke="var(--color-border)"
+        strokeWidth="6"
+        opacity="0.55"
+      />
+      <circle
+        cx="20"
+        cy="20"
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray={dash}
+        strokeDashoffset={offset}
+        style={{ transition: "stroke-dashoffset 900ms ease-out" }}
+        transform="rotate(-90 20 20)"
+      />
+      <text
+        x="20"
+        y="22"
+        textAnchor="middle"
+        fontSize="9"
+        fontWeight="800"
+        fill="var(--color-foreground)"
+      >
+        {Math.round(pct * 100)}%
+      </text>
+    </svg>
+  );
+}
+
+function CategoryBarList({
+  items,
+}: {
+  items: Array<{ label: string; value: number }>;
+}) {
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => setAnimate(true), []);
+  const max = Math.max(1, ...items.map((i) => i.value));
+
+  return (
+    <div className="space-y-2">
+      {items.map((i) => {
+        const w = (i.value / max) * 100;
+        return (
+          <div key={i.label} className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <div className="truncate text-sm font-semibold text-[color:var(--color-foreground)]">
+                  {i.label}
+                </div>
+                <div className="text-sm font-semibold text-[color:var(--color-foreground)]">
+                  {formatMoney(i.value, "COP")}
+                </div>
+              </div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
+                <div
+                  className="h-full rounded-full transition-[width] duration-700 ease-out"
+                  style={{
+                    width: animate ? `${w}%` : "0%",
+                    backgroundColor: "var(--primary)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DashboardView() {
   const { uid } = useCurrentUser();
   const { companies, loading: companiesLoading } = useCompanies(uid);
@@ -207,10 +306,13 @@ export function DashboardView() {
   });
   const [todayKey, setTodayKey] = useState<string>("2000-01-01");
   const [hoursBaseKey, setHoursBaseKey] = useState<string>("2000-01-01");
+  const [hoursTab, setHoursTab] = useState<"day" | "week" | "biweekly" | "month">("day");
 
   useEffect(() => {
     const now = new Date();
-    setPeriod({ year: now.getFullYear(), month1Based: now.getMonth() + 1 });
+    const year = now.getFullYear();
+    const month1Based = now.getMonth() + 1;
+    setPeriod({ year, month1Based });
     setTodayKey(dateKeyFromDate(now));
     setHoursBaseKey(dateKeyFromDate(now));
   }, []);
@@ -313,6 +415,13 @@ export function DashboardView() {
     const expensesAll = expenses.reduce((acc, e) => acc + Number(e.amount || 0), 0);
     return { savingsAll: incomeAll - expensesAll };
   }, [expenses, payslips]);
+
+  const spendPct = useMemo(() => {
+    if (!Number.isFinite(monthIncome) || monthIncome <= 0) return 0;
+    const pct = monthExpenses / monthIncome;
+    if (!Number.isFinite(pct)) return 0;
+    return Math.max(0, Math.min(1, pct));
+  }, [monthExpenses, monthIncome]);
 
   const incomeByCompany = useMemo(() => {
     const by = new Map<string, number>();
@@ -439,22 +548,27 @@ export function DashboardView() {
             {loading ? "…" : formatMoney(monthIncome, "COP")}
           </div>
           <div className="mt-2 text-xs font-semibold text-[color:var(--color-muted)]">
-            Colillas del mes seleccionado
+            {monthLabelEs(period.month1Based)}
           </div>
         </div>
 
         <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--postit-purple)] p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-foreground)]">
-              Gastos (mes)
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-foreground)]">
+                Gastos (mes)
+              </div>
+              <div className="mt-2 text-2xl font-extrabold tracking-tight text-[color:var(--color-foreground)]">
+                {loading ? "…" : formatMoney(monthExpenses, "COP")}
+              </div>
+              <div className="mt-2 text-xs font-semibold text-[color:var(--color-muted)]">
+                {Math.round(spendPct * 100)}% de ingresos
+              </div>
             </div>
-            <CreditCard className="h-4 w-4 text-[color:var(--color-foreground)]" />
-          </div>
-          <div className="mt-2 text-2xl font-extrabold tracking-tight text-[color:var(--color-foreground)]">
-            {loading ? "…" : formatMoney(monthExpenses, "COP")}
-          </div>
-          <div className="mt-2 text-xs font-semibold text-[color:var(--color-muted)]">
-            Total de gastos del periodo
+            <div className="flex items-center gap-2">
+              <RingGauge value={monthExpenses} max={monthIncome} color="var(--color-foreground)" />
+              <CreditCard className="h-4 w-4 text-[color:var(--color-foreground)]" />
+            </div>
           </div>
         </div>
 
@@ -529,21 +643,11 @@ export function DashboardView() {
               Cargando…
             </div>
           ) : expensesByCategory.length ? (
-            <div className="space-y-2">
-              {expensesByCategory.map((c) => (
-                <div
-                  key={c.category}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2"
-                >
-                  <div className="text-sm font-semibold text-[color:var(--color-foreground)]">
-                    {c.category}
-                  </div>
-                  <div className="text-sm font-semibold text-[color:var(--color-foreground)]">
-                    {formatMoney(c.value, "COP")}
-                  </div>
-                </div>
-              ))}
-              <div className="mt-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-[color:var(--color-muted)]">
+            <div className="space-y-3">
+              <CategoryBarList
+                items={expensesByCategory.slice(0, 6).map((c) => ({ label: c.category, value: c.value }))}
+              />
+              <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-[color:var(--color-muted)]">
                 Total: {formatMoney(monthExpenses, "COP")}
               </div>
             </div>
@@ -556,21 +660,74 @@ export function DashboardView() {
       </div>
 
       <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
-        <div className="mb-3 flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
-              Horas (Horarios)
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
+                Horas (Horarios)
+              </div>
+              <div className="text-xs text-[color:var(--color-muted)]">
+                Resumen rápido (mobile-first).
+              </div>
             </div>
-            <div className="text-xs text-[color:var(--color-muted)]">
-              Día: {todayKey} · Semana: {weekRange.startKey} → {weekRange.endKey} · Quincena: {biweeklyRange.startKey} → {biweeklyRange.endKey} · Mes: {monthRange.startKey} → {monthRange.endKey}
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-[color:var(--color-muted)]">
+                  Base (semana/quincena/mes)
+                </span>
+                <input
+                  value={hoursBaseKey}
+                  onChange={(e) => setHoursBaseKey(e.target.value)}
+                  type="date"
+                  className="h-11 w-full rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+                />
+              </label>
             </div>
           </div>
-          <input
-            value={hoursBaseKey}
-            onChange={(e) => setHoursBaseKey(e.target.value)}
-            type="date"
-            className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
-          />
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { label: "Hoy", value: todayKey },
+              { label: "Semana", value: `${weekRange.startKey} → ${weekRange.endKey}` },
+              { label: "Quincena", value: `${biweeklyRange.startKey} → ${biweeklyRange.endKey}` },
+              { label: "Mes", value: `${monthRange.startKey} → ${monthRange.endKey}` },
+            ].map((it) => (
+              <div
+                key={it.label}
+                className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2"
+              >
+                <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                  {it.label}
+                </div>
+                <div className="mt-0.5 break-words text-xs font-semibold text-[color:var(--color-foreground)]">
+                  {it.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-[color:var(--color-muted)]">
+                Periodo (vista móvil)
+              </span>
+              <select
+                value={hoursTab}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "week" || v === "biweekly" || v === "month") setHoursTab(v);
+                  else setHoursTab("day");
+                }}
+                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+              >
+                <option value="day">Día (hoy)</option>
+                <option value="week">Semana</option>
+                <option value="biweekly">Quincena</option>
+                <option value="month">Mes</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         {(daySchedules.error || weekSchedules.error || biweeklySchedules.error || monthSchedules.error) ? (
@@ -578,60 +735,135 @@ export function DashboardView() {
             {(daySchedules.error ?? weekSchedules.error ?? biweeklySchedules.error ?? monthSchedules.error) ?? "Error al leer horarios"}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { title: "Día", totals: dayTotals, sub: todayKey },
-              { title: "Semana", totals: weekTotals, sub: `${weekRange.startKey} → ${weekRange.endKey}` },
-              { title: "Quincena", totals: biweeklyTotals, sub: `${biweeklyRange.startKey} → ${biweeklyRange.endKey}` },
-              { title: "Mes", totals: monthTotals, sub: `${monthRange.startKey} → ${monthRange.endKey}` },
-            ].map(({ title, totals, sub }) => (
-              <div
-                key={title}
-                className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm"
-              >
-                <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
-                  {title}
-                </div>
-                <div className="mt-1 text-xs font-semibold text-[color:var(--color-muted)]">
-                  {sub}
-                </div>
-                <div className="mt-3 space-y-1">
-                  {loading ? (
-                    <div className="text-sm font-semibold text-[color:var(--color-muted)]">
-                      Cargando…
+          <>
+            <div className="mt-3 lg:hidden">
+              {(() => {
+                const title =
+                  hoursTab === "week" ? "Semana" : hoursTab === "biweekly" ? "Quincena" : hoursTab === "month" ? "Mes" : "Día";
+                const sub =
+                  hoursTab === "week"
+                    ? `${weekRange.startKey} → ${weekRange.endKey}`
+                    : hoursTab === "biweekly"
+                      ? `${biweeklyRange.startKey} → ${biweeklyRange.endKey}`
+                      : hoursTab === "month"
+                        ? `${monthRange.startKey} → ${monthRange.endKey}`
+                        : todayKey;
+                const totals =
+                  hoursTab === "week"
+                    ? weekTotals
+                    : hoursTab === "biweekly"
+                      ? biweeklyTotals
+                      : hoursTab === "month"
+                        ? monthTotals
+                        : dayTotals;
+
+                return (
+                  <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm">
+                    <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                      {title}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <div className="font-semibold text-[color:var(--color-muted)]">
-                          CESDE
+                    <div className="mt-1 break-words text-xs font-semibold text-[color:var(--color-muted)]">
+                      {sub}
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {loading ? (
+                        <div className="text-sm font-semibold text-[color:var(--color-muted)]">
+                          Cargando…
                         </div>
-                        <div className="font-extrabold text-[color:var(--color-foreground)]">
-                          {totals.cesde} H
-                        </div>
+                      ) : (
+                        <>
+                          <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2">
+                            <div className="flex items-center justify-between gap-3 text-sm">
+                              <div className="font-extrabold text-[color:var(--color-muted)]">
+                                TOTAL
+                              </div>
+                              <div className="font-extrabold text-[color:var(--color-foreground)]">
+                                {totals.all} H
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2">
+                            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-sm">
+                              <div className="font-semibold text-[color:var(--color-muted)]">
+                                CESDE
+                              </div>
+                              <div className="font-extrabold text-[color:var(--color-foreground)]">
+                                {totals.cesde} H
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-sm">
+                              <div className="font-semibold text-[color:var(--color-muted)]">
+                                SENA
+                              </div>
+                              <div className="font-extrabold text-[color:var(--color-foreground)]">
+                                {totals.sena} H
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="mt-3 hidden grid-cols-1 gap-3 sm:grid-cols-2 lg:grid lg:grid-cols-4">
+              {[
+                { title: "Día", totals: dayTotals, sub: todayKey },
+                { title: "Semana", totals: weekTotals, sub: `${weekRange.startKey} → ${weekRange.endKey}` },
+                { title: "Quincena", totals: biweeklyTotals, sub: `${biweeklyRange.startKey} → ${biweeklyRange.endKey}` },
+                { title: "Mes", totals: monthTotals, sub: `${monthRange.startKey} → ${monthRange.endKey}` },
+              ].map(({ title, totals, sub }) => (
+                <div
+                  key={title}
+                  className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm"
+                >
+                  <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                    {title}
+                  </div>
+                  <div className="mt-1 break-words text-xs font-semibold text-[color:var(--color-muted)]">
+                    {sub}
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    {loading ? (
+                      <div className="text-sm font-semibold text-[color:var(--color-muted)]">
+                        Cargando…
                       </div>
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <div className="font-semibold text-[color:var(--color-muted)]">
-                          SENA
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <div className="font-semibold text-[color:var(--color-muted)]">
+                            CESDE
+                          </div>
+                          <div className="font-extrabold text-[color:var(--color-foreground)]">
+                            {totals.cesde} H
+                          </div>
                         </div>
-                        <div className="font-extrabold text-[color:var(--color-foreground)]">
-                          {totals.sena} H
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <div className="font-semibold text-[color:var(--color-muted)]">
+                            SENA
+                          </div>
+                          <div className="font-extrabold text-[color:var(--color-foreground)]">
+                            {totals.sena} H
+                          </div>
                         </div>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-sm">
-                        <div className="font-extrabold text-[color:var(--color-muted)]">
-                          TOTAL
+                        <div className="mt-2 flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-sm">
+                          <div className="font-extrabold text-[color:var(--color-muted)]">
+                            TOTAL
+                          </div>
+                          <div className="font-extrabold text-[color:var(--color-foreground)]">
+                            {totals.all} H
+                          </div>
                         </div>
-                        <div className="font-extrabold text-[color:var(--color-foreground)]">
-                          {totals.all} H
-                        </div>
-                      </div>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

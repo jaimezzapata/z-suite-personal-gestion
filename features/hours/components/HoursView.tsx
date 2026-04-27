@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarDays, Coins, FileSpreadsheet, FileText } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useCompanies } from "@/features/companies/hooks/useCompanies";
@@ -181,6 +182,7 @@ function MoneyValue({ totals }: { totals: MoneyTotals }) {
 
 export function HoursView() {
   const { uid } = useCurrentUser();
+  const searchParams = useSearchParams();
   const { companies, loading: companiesLoading } = useCompanies(uid);
 
   const [baseKey, setBaseKey] = useState("2000-01-01");
@@ -192,10 +194,16 @@ export function HoursView() {
   useEffect(() => {
     const now = new Date();
     const today = dateKeyFromDate(now);
+    const qsStart = searchParams.get("reportStart");
+    const qsEnd = searchParams.get("reportEnd");
+    const monthStart = dateKeyFromParts(now.getFullYear(), now.getMonth() + 1, 1);
+    const safeStart = qsStart && parseDateKey(qsStart) ? qsStart : monthStart;
+    const safeEnd = qsEnd && parseDateKey(qsEnd) ? qsEnd : today;
+
     setBaseKey(today);
-    setReportEndKey(today);
-    setReportStartKey(dateKeyFromParts(now.getFullYear(), now.getMonth() + 1, 1));
-  }, []);
+    setReportEndKey(safeEnd);
+    setReportStartKey(safeStart);
+  }, [searchParams]);
 
   const baseParts = useMemo(() => parseDateKey(baseKey), [baseKey]);
 
@@ -480,63 +488,93 @@ export function HoursView() {
       </div>
 
       <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
-              Reporte
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
+                Reporte
+              </div>
+              <div className="text-xs text-[color:var(--color-muted)]">
+                Exporta sin scroll horizontal (solo empresas por hora).
+              </div>
             </div>
-            <div className="text-xs text-[color:var(--color-muted)]">
-              Exporta Excel o PDF desde una fecha de inicio.
+            <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-[color:var(--color-muted)]">
+              {reportRange.startKey} → {reportRange.endKey}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="flex flex-col gap-1">
-              <div className="text-xs font-semibold text-[color:var(--color-muted)]">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-[color:var(--color-muted)]">
                 Inicio
-              </div>
+              </span>
               <input
                 value={reportStartKey}
                 onChange={(e) => setReportStartKey(e.target.value)}
                 type="date"
-                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+                className="h-11 w-full rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              <div className="text-xs font-semibold text-[color:var(--color-muted)]">
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-semibold text-[color:var(--color-muted)]">
                 Fin
-              </div>
+              </span>
               <input
                 value={reportEndKey}
                 onChange={(e) => setReportEndKey(e.target.value)}
                 type="date"
-                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+                className="h-11 w-full rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
               />
-            </div>
+            </label>
+          </div>
 
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                Total horas
+              </div>
+              <div className="mt-0.5 text-sm font-extrabold text-[color:var(--color-foreground)]">
+                {loading ? "…" : `${reportPay.totalHours} H`}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                Pago total
+              </div>
+              <div className="mt-0.5 text-sm font-extrabold text-[color:var(--color-foreground)]">
+                {loading ? "…" : <MoneyValue totals={reportPay.totalPay} />}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2">
+              <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                Empresas por hora
+              </div>
+              <div className="mt-0.5 text-sm font-extrabold text-[color:var(--color-foreground)]">
+                {loading ? "…" : hourlyCompanies.length}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => void downloadExcel()}
               disabled={exporting !== null}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-4 text-sm font-extrabold text-[color:var(--color-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+              aria-label="Descargar Excel"
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
             >
               <FileSpreadsheet className="h-4 w-4" />
-              Excel
             </button>
             <button
               type="button"
               onClick={() => void downloadPdf()}
               disabled={exporting !== null}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-primary)] px-4 text-sm font-extrabold text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+              aria-label="Descargar PDF"
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
             >
               <FileText className="h-4 w-4" />
-              PDF
             </button>
           </div>
-        </div>
-
-        <div className="mt-3 text-xs font-semibold text-[color:var(--color-muted)]">
-          Rango actual: {reportRange.startKey} → {reportRange.endKey}
         </div>
       </div>
 
@@ -546,11 +584,25 @@ export function HoursView() {
         </div>
       ) : null}
 
-      <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
-        <div className="text-xs font-semibold text-[color:var(--color-muted)]">
-          Día: {ranges.day.startKey} · Semana: {ranges.week.startKey} → {ranges.week.endKey} · Quincena:{" "}
-          {ranges.biweekly.startKey} → {ranges.biweekly.endKey} · Mes: {ranges.month.startKey} → {ranges.month.endKey}
-        </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Día", value: ranges.day.startKey },
+          { label: "Semana", value: `${ranges.week.startKey} → ${ranges.week.endKey}` },
+          { label: "Quincena", value: `${ranges.biweekly.startKey} → ${ranges.biweekly.endKey}` },
+          { label: "Mes", value: `${ranges.month.startKey} → ${ranges.month.endKey}` },
+        ].map((it) => (
+          <div
+            key={it.label}
+            className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3 shadow-sm"
+          >
+            <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+              {it.label}
+            </div>
+            <div className="mt-1 break-words text-xs font-semibold text-[color:var(--color-foreground)]">
+              {it.value}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

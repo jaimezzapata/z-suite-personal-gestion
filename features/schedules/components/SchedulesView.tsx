@@ -68,6 +68,21 @@ function formatDateKeyLabel(dateKey: string) {
   }
 }
 
+function round1(n: number) {
+  return Math.round(n * 10) / 10;
+}
+
+function formatCompactHours(hours: number) {
+  const h = round1(hours);
+  if (!Number.isFinite(h) || h <= 0) return "";
+  return `${h}H`;
+}
+
+function primaryHeatColor(alpha: number) {
+  const a = Math.max(0, Math.min(1, alpha));
+  return `rgba(107, 124, 255, ${a})`;
+}
+
 export function SchedulesView({ uid }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -147,6 +162,29 @@ export function SchedulesView({ uid }: Props) {
     }
     return map;
   }, [entries]);
+
+  const hoursByDateKey = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [dateKey, list] of entriesByDate.entries()) {
+      let total = 0;
+      for (const e of list) {
+        const minutes = Math.max(0, e.endMinutes - e.startMinutes);
+        total += minutes / minutesPerHourUnit(e.institutionKind);
+      }
+      map.set(dateKey, round1(total));
+    }
+    return map;
+  }, [entriesByDate]);
+
+  const maxInMonthHours = useMemo(() => {
+    let max = 0;
+    for (const d of grid) {
+      if (!d.inMonth) continue;
+      const h = hoursByDateKey.get(d.dateKey) ?? 0;
+      if (h > max) max = h;
+    }
+    return max;
+  }, [grid, hoursByDateKey]);
 
   const selectedEntries = useMemo(
     () => entriesByDate.get(selectedDateKey) ?? [],
@@ -409,10 +447,10 @@ export function SchedulesView({ uid }: Props) {
               setEditing(null);
               setModalOpen(true);
             }}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-primary)] px-4 text-sm font-semibold text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]"
+            aria-label="Nuevo horario"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]"
           >
             <Plus className="h-4 w-4" />
-            Nuevo horario
           </button>
         </div>
       </div>
@@ -454,6 +492,11 @@ export function SchedulesView({ uid }: Props) {
           {grid.map((day) => {
             const isSelected = day.dateKey === selectedDateKey;
             const count = entriesByDate.get(day.dateKey)?.length ?? 0;
+            const hours = hoursByDateKey.get(day.dateKey) ?? 0;
+            const ratio = maxInMonthHours > 0 ? Math.min(1, hours / maxInMonthHours) : 0;
+            const dotSize = hours > 0 ? Math.round(4 + ratio * 8) : 0;
+            const dotAlpha = hours > 0 ? 0.12 + ratio * 0.26 : 0;
+            const dotColor = primaryHeatColor(dotAlpha);
 
             return (
               <button
@@ -465,17 +508,23 @@ export function SchedulesView({ uid }: Props) {
                 }}
                 aria-pressed={isSelected}
                 className={[
-                  "min-h-14 rounded-2xl border p-2 text-left transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
+                  "relative min-h-[54px] rounded-2xl border p-1.5 text-left transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
                   day.inMonth
                     ? "border-[color:var(--color-border)] bg-[color:var(--color-surface)]"
                     : "border-[color:var(--color-border)] bg-[color:var(--color-surface-2)]",
                   isSelected ? "ring-4 ring-[color:var(--primary-ring)]" : "",
                 ].join(" ")}
               >
-                <div className="flex items-start justify-between gap-1">
+                {count ? (
+                  <div className="absolute right-1 top-1 z-20 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--postit-yellow)] px-1 text-[9px] font-extrabold text-[color:var(--color-foreground)]">
+                    {count}
+                  </div>
+                ) : null}
+
+                <div className="relative z-10 flex items-start justify-between gap-1">
                   <div
                     className={[
-                      "text-xs font-semibold",
+                      "text-xs font-extrabold",
                       day.inMonth
                         ? "text-[color:var(--color-foreground)]"
                         : "text-[color:var(--color-muted)]",
@@ -483,12 +532,29 @@ export function SchedulesView({ uid }: Props) {
                   >
                     {day.day}
                   </div>
-                  {count ? (
-                    <div className="grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--postit-yellow)] px-1 text-[9px] font-extrabold text-[color:var(--color-foreground)]">
-                      {count}
-                    </div>
-                  ) : null}
                 </div>
+
+                {hours ? (
+                  <div
+                    className={[
+                      "relative z-10 mt-1 text-[9px] font-extrabold",
+                      day.inMonth ? "text-[color:var(--color-muted)]" : "text-[color:var(--color-muted)] opacity-70",
+                    ].join(" ")}
+                  >
+                    {formatCompactHours(hours)}
+                  </div>
+                ) : null}
+
+                {dotSize ? (
+                  <div
+                    className="pointer-events-none absolute bottom-1.5 right-1.5 z-0 rounded-full"
+                    style={{
+                      width: `${dotSize}px`,
+                      height: `${dotSize}px`,
+                      backgroundColor: dotColor,
+                    }}
+                  />
+                ) : null}
               </button>
             );
           })}
@@ -517,10 +583,10 @@ export function SchedulesView({ uid }: Props) {
               type="button"
               onClick={() => void handleDeleteFromSelectedDate()}
               disabled={loading || bulkBusy}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--postit-pink)] px-4 text-sm font-extrabold text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+              aria-label="Eliminar desde aquí"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--postit-pink)] text-[color:var(--color-foreground)] transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
             >
               <Trash2 className="h-4 w-4" />
-              Eliminar desde aquí
             </button>
             <button
               type="button"
@@ -528,10 +594,10 @@ export function SchedulesView({ uid }: Props) {
                 setEditing(null);
                 setModalOpen(true);
               }}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-4 text-sm font-semibold text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)]"
+              aria-label="Agregar aquí"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)]"
             >
               <Plus className="h-4 w-4" />
-              Agregar aquí
             </button>
           </div>
         </div>

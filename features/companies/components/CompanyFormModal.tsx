@@ -441,17 +441,18 @@ export function CompanyFormModal({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="h-11 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-4 text-sm font-semibold text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)] disabled:opacity-60"
+                aria-label="Cancelar"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)] disabled:opacity-60"
               >
-                Cancelar
+                <X className="h-4 w-4" />
               </button>
               <button
                 type="submit"
                 disabled={loading || !canSubmit}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[color:var(--color-primary)] px-4 text-sm font-semibold text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
+                aria-label="Guardar"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:opacity-60"
               >
                 <Save className="h-4 w-4" />
-                Guardar
               </button>
             </div>
           </form>
