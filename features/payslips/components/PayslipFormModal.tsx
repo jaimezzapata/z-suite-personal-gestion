@@ -7,7 +7,7 @@ import type { Company } from "@/features/companies/types";
 import type { BiweeklyPart, Payslip, PayslipInput, PayPeriodType } from "@/features/payslips/types";
 import { buildPeriodKey, getBiweeklyRange, getMonthlyRange } from "@/features/payslips/utils/periods";
 import { parseISODateInput, timestampToISODateInput } from "@/shared/utils/date";
-import { formatDate } from "@/shared/utils/format";
+import { formatDateWithWeekday } from "@/shared/utils/format";
 import { normalizeUpper } from "@/shared/utils/text";
 
 type Props = {
@@ -264,7 +264,7 @@ export function PayslipFormModal({
             </div>
 
             <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] p-3 text-xs text-[color:var(--color-muted)]">
-              Periodo: {formatDate(period.start)} - {formatDate(period.end)}
+              Periodo: {formatDateWithWeekday(period.start)} - {formatDateWithWeekday(period.end)}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-1">

@@ -15,7 +15,7 @@ import type { BiweeklyPart, ExpensePeriodType } from "@/features/expenses/utils/
 import { getBiweeklyRange, getMonthlyRange } from "@/features/expenses/utils/periods";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
-import { formatCop, formatDate } from "@/shared/utils/format";
+import { formatCop, formatDateWithWeekday } from "@/shared/utils/format";
 
 import { ExpenseFormModal } from "./ExpenseFormModal";
 import { ExpensesConfigModal, type ExpensesFilters } from "./ExpensesConfigModal";
@@ -179,7 +179,7 @@ export function ExpensesView({ uid }: Props) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-1 text-xs font-semibold text-[color:var(--color-foreground)]">
           {filters.periodType === "monthly" ? "MES" : `Q${filters.biweeklyPart}`} ·{" "}
-          {formatDate(range.start)} - {formatDate(range.end)}
+          {formatDateWithWeekday(range.start)} - {formatDateWithWeekday(range.end)}
         </span>
         {filters.category !== "ALL" ? (
           <span className="rounded-full border border-[color:var(--color-border)] bg-[color:var(--postit-blue)] px-3 py-1 text-xs font-semibold text-[color:var(--color-foreground)]">
@@ -233,7 +233,7 @@ export function ExpensesView({ uid }: Props) {
                     {expenseCategoryLabel(e.category)}
                   </div>
                   <div className="mt-1 text-xs font-semibold text-[color:var(--color-muted)]">
-                    {formatDate(e.date.toDate())}
+                    {formatDateWithWeekday(e.date.toDate())}
                   </div>
                   <div className="mt-2 text-sm font-semibold text-[color:var(--color-foreground)]">
                     {formatCop(e.amount)}

@@ -11,7 +11,7 @@ import { dateKeyFromParts, parseDateKey } from "@/features/schedules/utils/dateK
 import { minutesPerHourUnit, minutesToTime } from "@/features/schedules/utils/time";
 import { useCurrentUser } from "@/shared/auth/CurrentUserContext";
 import { toast } from "@/shared/ui/toast";
-import { formatMoney } from "@/shared/utils/format";
+import { formatDateKeyWithWeekday, formatMoney } from "@/shared/utils/format";
 import { normalizeUpper } from "@/shared/utils/text";
 
 function dateKeyFromDate(d: Date) {
@@ -301,7 +301,10 @@ export function HoursView() {
 
       const summaryRows: Array<Record<string, string | number>> = [];
       summaryRows.push({ Campo: "Reporte", Valor: "Pago por horas (solo empresas por hora)" });
-      summaryRows.push({ Campo: "Rango", Valor: `${reportRange.startKey} → ${reportRange.endKey}` });
+      summaryRows.push({
+        Campo: "Rango",
+        Valor: `${formatDateKeyWithWeekday(reportRange.startKey)} → ${formatDateKeyWithWeekday(reportRange.endKey)}`,
+      });
       summaryRows.push({ Campo: "Generado", Valor: new Date().toISOString().slice(0, 19).replace("T", " ") });
       summaryRows.push({ Campo: "Total horas", Valor: reportPay.totalHours });
       summaryRows.push({ Campo: "Total COP", Valor: totalCop });
@@ -323,7 +326,7 @@ export function HoursView() {
 
       const details = reportPay.details.flatMap((g) =>
         g.items.map((it) => ({
-          Fecha: it.dateKey,
+          Fecha: formatDateKeyWithWeekday(it.dateKey),
           Empresa: it.label,
           Materia: it.subject,
           Inicio: minutesToTime(it.startMinutes),
@@ -383,7 +386,11 @@ export function HoursView() {
       doc.text("Reporte de pago por horas", 40, 48);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      doc.text(`Rango: ${reportRange.startKey} → ${reportRange.endKey}`, 40, 66);
+      doc.text(
+        `Rango: ${formatDateKeyWithWeekday(reportRange.startKey)} → ${formatDateKeyWithWeekday(reportRange.endKey)}`,
+        40,
+        66,
+      );
       doc.text(`Generado: ${new Date().toISOString().slice(0, 19).replace("T", " ")}`, 40, 80);
 
       const totalCop = reportPay.totalPay.COP ?? 0;
@@ -414,7 +421,7 @@ export function HoursView() {
         const detailHead = [["Fecha", "Empresa", "Materia", "Horario", "Horas", "Valor hora", "Moneda", "Pago"]];
         const detailBody = reportPay.details.flatMap((g) =>
           g.items.map((it) => [
-            it.dateKey,
+            formatDateKeyWithWeekday(it.dateKey),
             it.label,
             it.subject || "—",
             `${minutesToTime(it.startMinutes)}-${minutesToTime(it.endMinutes)}`,
@@ -499,7 +506,7 @@ export function HoursView() {
               </div>
             </div>
             <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-[color:var(--color-muted)]">
-              {reportRange.startKey} → {reportRange.endKey}
+              {formatDateKeyWithWeekday(reportRange.startKey)} → {formatDateKeyWithWeekday(reportRange.endKey)}
             </div>
           </div>
 
@@ -586,10 +593,19 @@ export function HoursView() {
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Día", value: ranges.day.startKey },
-          { label: "Semana", value: `${ranges.week.startKey} → ${ranges.week.endKey}` },
-          { label: "Quincena", value: `${ranges.biweekly.startKey} → ${ranges.biweekly.endKey}` },
-          { label: "Mes", value: `${ranges.month.startKey} → ${ranges.month.endKey}` },
+          { label: "Día", value: formatDateKeyWithWeekday(ranges.day.startKey) },
+          {
+            label: "Semana",
+            value: `${formatDateKeyWithWeekday(ranges.week.startKey)} → ${formatDateKeyWithWeekday(ranges.week.endKey)}`,
+          },
+          {
+            label: "Quincena",
+            value: `${formatDateKeyWithWeekday(ranges.biweekly.startKey)} → ${formatDateKeyWithWeekday(ranges.biweekly.endKey)}`,
+          },
+          {
+            label: "Mes",
+            value: `${formatDateKeyWithWeekday(ranges.month.startKey)} → ${formatDateKeyWithWeekday(ranges.month.endKey)}`,
+          },
         ].map((it) => (
           <div
             key={it.label}
@@ -607,10 +623,22 @@ export function HoursView() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: "Día", sub: ranges.day.startKey, data: dayPay },
-          { title: "Semana", sub: `${ranges.week.startKey} → ${ranges.week.endKey}`, data: weekPay },
-          { title: "Quincena", sub: `${ranges.biweekly.startKey} → ${ranges.biweekly.endKey}`, data: biweeklyPay },
-          { title: "Mes", sub: `${ranges.month.startKey} → ${ranges.month.endKey}`, data: monthPay },
+          { title: "Día", sub: formatDateKeyWithWeekday(ranges.day.startKey), data: dayPay },
+          {
+            title: "Semana",
+            sub: `${formatDateKeyWithWeekday(ranges.week.startKey)} → ${formatDateKeyWithWeekday(ranges.week.endKey)}`,
+            data: weekPay,
+          },
+          {
+            title: "Quincena",
+            sub: `${formatDateKeyWithWeekday(ranges.biweekly.startKey)} → ${formatDateKeyWithWeekday(ranges.biweekly.endKey)}`,
+            data: biweeklyPay,
+          },
+          {
+            title: "Mes",
+            sub: `${formatDateKeyWithWeekday(ranges.month.startKey)} → ${formatDateKeyWithWeekday(ranges.month.endKey)}`,
+            data: monthPay,
+          },
         ].map(({ title, sub, data }) => (
           <div
             key={title}
@@ -731,7 +759,7 @@ export function HoursView() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
-                      {g.dateKey}
+                      {formatDateKeyWithWeekday(g.dateKey)}
                     </div>
                     <div className="mt-1 text-xs font-semibold text-[color:var(--color-muted)]">
                       {g.totalHours} H · <MoneyValue totals={g.totalPay} />

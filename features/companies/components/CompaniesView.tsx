@@ -15,7 +15,7 @@ import { payFrequencyLabel, payTypeLabel } from "@/features/companies/utils/labe
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
 import { isValidHex, normalizeHex } from "@/shared/utils/color";
-import { formatDate, formatMoney } from "@/shared/utils/format";
+import { formatDateWithWeekday, formatMoney } from "@/shared/utils/format";
 
 import { CompanyFormModal } from "./CompanyFormModal";
 
@@ -222,9 +222,9 @@ export function CompaniesView({ uid }: Props) {
 
                   {c.contractStartDate ? (
                     <div className={["mt-2 text-xs", mutedClass].join(" ")}>
-                      INICIO: {formatDate(c.contractStartDate.toDate())}
+                      INICIO: {formatDateWithWeekday(c.contractStartDate.toDate())}
                       {c.contractEndDate ? (
-                        <> · FIN: {formatDate(c.contractEndDate.toDate())}</>
+                        <> · FIN: {formatDateWithWeekday(c.contractEndDate.toDate())}</>
                       ) : null}
                     </div>
                   ) : null}

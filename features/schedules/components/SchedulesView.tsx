@@ -33,6 +33,7 @@ import {
 import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
+import { formatDateKeyWithWeekday } from "@/shared/utils/format";
 
 import { ScheduleFormModal } from "./ScheduleFormModal";
 import { DeleteGroupModal } from "./DeleteGroupModal";
@@ -52,21 +53,7 @@ function institutionLabel(kind: InstitutionKind, name?: string) {
 }
 
 function formatDateKeyLabel(dateKey: string) {
-  const parts = parseDateKey(dateKey);
-  if (!parts) return dateKey;
-  try {
-    const d = new Date(parts.year, parts.month1Based - 1, parts.day);
-    return new Intl.DateTimeFormat("es-CO", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    })
-      .format(d)
-      .toLocaleUpperCase("es-CO");
-  } catch {
-    return dateKey;
-  }
+  return formatDateKeyWithWeekday(dateKey);
 }
 
 function round1(n: number) {

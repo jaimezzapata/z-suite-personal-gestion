@@ -22,10 +22,11 @@ import {
 } from "@/features/payslips/services/payslipsService";
 import { buildPeriodKey, getBiweeklyRange, getMonthlyRange } from "@/features/payslips/utils/periods";
 import { periodLabel, periodTypeLabel } from "@/features/payslips/utils/labels";
+import { CesdeBiweeklyProjection } from "@/features/payslips/components/CesdeBiweeklyProjection";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
 import { isDarkHex, isValidHex, normalizeHex } from "@/shared/utils/color";
-import { formatDate, formatMoney } from "@/shared/utils/format";
+import { formatDateWithWeekday, formatMoney } from "@/shared/utils/format";
 
 type Props = {
   uid: string;
@@ -355,10 +356,14 @@ export function PayslipsView({ uid }: Props) {
             </div>
 
             <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] p-3 text-xs text-[color:var(--color-muted)]">
-              Periodo: {formatDate(period.start)} - {formatDate(period.end)}
+              Periodo: {formatDateWithWeekday(period.start)} - {formatDateWithWeekday(period.end)}
             </div>
           </div>
         </div>
+      ) : null}
+
+      {!emptyCompanies ? (
+        <CesdeBiweeklyProjection uid={uid} companies={companies} payslips={payslips} />
       ) : null}
 
       {error ? (
@@ -437,7 +442,7 @@ export function PayslipsView({ uid }: Props) {
                   </div>
                   {p.createdAt ? (
                     <div className={["mt-2 text-xs", mutedClass].join(" ")}>
-                      REGISTRO: {formatDate(p.createdAt.toDate())}
+                      REGISTRO: {formatDateWithWeekday(p.createdAt.toDate())}
                     </div>
                   ) : null}
                   {p.notes ? (

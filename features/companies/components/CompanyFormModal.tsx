@@ -14,7 +14,7 @@ import { useCompanySalaryHistory } from "@/features/companies/hooks/useCompanySa
 import { parseISODateInput, timestampToISODateInput } from "@/shared/utils/date";
 import { isValidHex, normalizeHex } from "@/shared/utils/color";
 import { normalizeUpper } from "@/shared/utils/text";
-import { formatDate, formatMoney } from "@/shared/utils/format";
+import { formatDateWithWeekday, formatMoney } from "@/shared/utils/format";
 import { toast } from "@/shared/ui/toast";
 
 type Props = {
@@ -421,7 +421,7 @@ export function CompanyFormModal({
                           </div>
                           <div className="truncate text-xs text-[color:var(--color-muted)]">
                             {h.createdAt
-                              ? formatDate(h.createdAt.toDate())
+                              ? formatDateWithWeekday(h.createdAt.toDate())
                               : "—"}
                           </div>
                         </div>

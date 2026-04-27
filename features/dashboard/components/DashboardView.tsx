@@ -13,7 +13,7 @@ import { minutesPerHourUnit } from "@/features/schedules/utils/time";
 import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
 import { useCurrentUser } from "@/shared/auth/CurrentUserContext";
 import { isDarkHex, isValidHex, normalizeHex } from "@/shared/utils/color";
-import { formatMoney } from "@/shared/utils/format";
+import { formatDateKeyWithWeekday, formatMoney } from "@/shared/utils/format";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -834,10 +834,19 @@ export function DashboardView() {
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { label: "Hoy", value: todayKey },
-              { label: "Semana", value: `${weekRange.startKey} → ${weekRange.endKey}` },
-              { label: "Quincena", value: `${biweeklyRange.startKey} → ${biweeklyRange.endKey}` },
-              { label: "Mes", value: `${monthRange.startKey} → ${monthRange.endKey}` },
+              { label: "Hoy", value: formatDateKeyWithWeekday(todayKey) },
+              {
+                label: "Semana",
+                value: `${formatDateKeyWithWeekday(weekRange.startKey)} → ${formatDateKeyWithWeekday(weekRange.endKey)}`,
+              },
+              {
+                label: "Quincena",
+                value: `${formatDateKeyWithWeekday(biweeklyRange.startKey)} → ${formatDateKeyWithWeekday(biweeklyRange.endKey)}`,
+              },
+              {
+                label: "Mes",
+                value: `${formatDateKeyWithWeekday(monthRange.startKey)} → ${formatDateKeyWithWeekday(monthRange.endKey)}`,
+              },
             ].map((it) => (
               <div
                 key={it.label}
@@ -888,12 +897,12 @@ export function DashboardView() {
                   hoursTab === "week" ? "Semana" : hoursTab === "biweekly" ? "Quincena" : hoursTab === "month" ? "Mes" : "Día";
                 const sub =
                   hoursTab === "week"
-                    ? `${weekRange.startKey} → ${weekRange.endKey}`
+                    ? `${formatDateKeyWithWeekday(weekRange.startKey)} → ${formatDateKeyWithWeekday(weekRange.endKey)}`
                     : hoursTab === "biweekly"
-                      ? `${biweeklyRange.startKey} → ${biweeklyRange.endKey}`
+                      ? `${formatDateKeyWithWeekday(biweeklyRange.startKey)} → ${formatDateKeyWithWeekday(biweeklyRange.endKey)}`
                       : hoursTab === "month"
-                        ? `${monthRange.startKey} → ${monthRange.endKey}`
-                        : todayKey;
+                        ? `${formatDateKeyWithWeekday(monthRange.startKey)} → ${formatDateKeyWithWeekday(monthRange.endKey)}`
+                        : formatDateKeyWithWeekday(todayKey);
                 const totals =
                   hoursTab === "week"
                     ? weekTotals
@@ -957,10 +966,22 @@ export function DashboardView() {
 
             <div className="mt-3 hidden grid-cols-1 gap-3 sm:grid-cols-2 lg:grid lg:grid-cols-4">
               {[
-                { title: "Día", totals: dayTotals, sub: todayKey },
-                { title: "Semana", totals: weekTotals, sub: `${weekRange.startKey} → ${weekRange.endKey}` },
-                { title: "Quincena", totals: biweeklyTotals, sub: `${biweeklyRange.startKey} → ${biweeklyRange.endKey}` },
-                { title: "Mes", totals: monthTotals, sub: `${monthRange.startKey} → ${monthRange.endKey}` },
+                { title: "Día", totals: dayTotals, sub: formatDateKeyWithWeekday(todayKey) },
+                {
+                  title: "Semana",
+                  totals: weekTotals,
+                  sub: `${formatDateKeyWithWeekday(weekRange.startKey)} → ${formatDateKeyWithWeekday(weekRange.endKey)}`,
+                },
+                {
+                  title: "Quincena",
+                  totals: biweeklyTotals,
+                  sub: `${formatDateKeyWithWeekday(biweeklyRange.startKey)} → ${formatDateKeyWithWeekday(biweeklyRange.endKey)}`,
+                },
+                {
+                  title: "Mes",
+                  totals: monthTotals,
+                  sub: `${formatDateKeyWithWeekday(monthRange.startKey)} → ${formatDateKeyWithWeekday(monthRange.endKey)}`,
+                },
               ].map(({ title, totals, sub }) => (
                 <div
                   key={title}
