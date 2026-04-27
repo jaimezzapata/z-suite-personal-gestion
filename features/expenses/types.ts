@@ -7,6 +7,12 @@ export type ExpenseCategory =
   | "CASA"
   | "SERVICIOS"
   | "DEUDAS"
+  | "ROPA"
+  | "ZAPATOS"
+  | "FIESTA"
+  | "CITAS"
+  | "GIMNASIO"
+  | "TECNOLOGIA"
   | "OTROS";
 
 export type ExpenseCurrency = "COP";

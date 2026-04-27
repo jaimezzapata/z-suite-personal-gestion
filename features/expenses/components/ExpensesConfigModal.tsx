@@ -4,13 +4,19 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bus,
   CreditCard,
+  Dumbbell,
   Fuel,
+  Heart,
   Home,
+  Laptop,
   Layers,
+  PartyPopper,
   PlugZap,
   Receipt,
+  Shirt,
   Shapes,
   SlidersHorizontal,
+  ShoppingBag,
   Utensils,
   X,
 } from "lucide-react";
@@ -35,6 +41,12 @@ const CATEGORY_ICON: Record<ExpenseCategory, LucideIcon> = {
   GASOLINA: Fuel,
   CASA: Home,
   SERVICIOS: PlugZap,
+  ROPA: Shirt,
+  ZAPATOS: ShoppingBag,
+  FIESTA: PartyPopper,
+  CITAS: Heart,
+  GIMNASIO: Dumbbell,
+  TECNOLOGIA: Laptop,
   OTROS: Shapes,
 };
 

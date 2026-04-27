@@ -48,6 +48,8 @@ type Props = {
   uid: string;
   dateKey: string;
   defaultBulkEndKey: string;
+  defaultInstitutionKind?: InstitutionKind;
+  defaultOtherInstitutionName?: string;
   onClose: () => void;
 };
 
@@ -56,6 +58,8 @@ export function AddScheduleFromDayModal({
   uid,
   dateKey,
   defaultBulkEndKey,
+  defaultInstitutionKind,
+  defaultOtherInstitutionName,
   onClose,
 }: Props) {
   const [mode, setMode] = useState<Mode>("single");
@@ -83,14 +87,15 @@ export function AddScheduleFromDayModal({
     const wd = weekdayFromDateKey(dateKey);
     setRepeatDays(wd ? [wd] : [1, 2, 3, 4, 5]);
     setExcludeHolidays(true);
-    setInstitutionKind("CESDE");
-    setInstitutionName("");
+    const kind = defaultInstitutionKind ?? "CESDE";
+    setInstitutionKind(kind);
+    setInstitutionName(kind === "OTRA" ? (defaultOtherInstitutionName ?? "") : "");
     setName("");
     setStartTime("07:00");
     setEndTime("08:00");
     setRoom("");
     setLoading(false);
-  }, [dateKey, defaultBulkEndKey, open]);
+  }, [dateKey, defaultBulkEndKey, defaultInstitutionKind, defaultOtherInstitutionName, open]);
 
   const canSubmit = useMemo(() => {
     const startMinutes = timeToMinutes(startTime);

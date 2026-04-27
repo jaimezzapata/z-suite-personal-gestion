@@ -4,12 +4,18 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bus,
   CreditCard,
+  Dumbbell,
   Fuel,
+  Heart,
   Home,
+  Laptop,
+  PartyPopper,
   PlugZap,
   Receipt,
+  Shirt,
   Save,
   Shapes,
+  ShoppingBag,
   Utensils,
   X,
 } from "lucide-react";
@@ -29,6 +35,12 @@ const CATEGORY_ITEMS: Array<{
   { category: "GASOLINA", label: "Gasolina", Icon: Fuel, bgClass: "bg-[color:var(--postit-green)]" },
   { category: "CASA", label: "Casa", Icon: Home, bgClass: "bg-[color:var(--postit-purple)]" },
   { category: "SERVICIOS", label: "Servicios", Icon: PlugZap, bgClass: "bg-[color:var(--postit-yellow)]" },
+  { category: "ROPA", label: "Ropa", Icon: Shirt, bgClass: "bg-[color:var(--postit-blue)]" },
+  { category: "ZAPATOS", label: "Zapatos", Icon: ShoppingBag, bgClass: "bg-[color:var(--postit-green)]" },
+  { category: "FIESTA", label: "Fiesta", Icon: PartyPopper, bgClass: "bg-[color:var(--postit-pink)]" },
+  { category: "CITAS", label: "Citas", Icon: Heart, bgClass: "bg-[color:var(--postit-purple)]" },
+  { category: "GIMNASIO", label: "Gimnasio", Icon: Dumbbell, bgClass: "bg-[color:var(--postit-yellow)]" },
+  { category: "TECNOLOGIA", label: "Tecnología", Icon: Laptop, bgClass: "bg-[color:var(--postit-blue)]" },
   { category: "OTROS", label: "Otros", Icon: Shapes, bgClass: "bg-[color:var(--postit-blue)]" },
 ];
 

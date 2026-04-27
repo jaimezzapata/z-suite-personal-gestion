@@ -7,5 +7,11 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   "CASA",
   "SERVICIOS",
   "DEUDAS",
+  "ROPA",
+  "ZAPATOS",
+  "FIESTA",
+  "CITAS",
+  "GIMNASIO",
+  "TECNOLOGIA",
   "OTROS",
 ];

@@ -43,6 +43,8 @@ type Props = {
   open: boolean;
   title: string;
   defaultDateKey: string;
+  defaultInstitutionKind?: InstitutionKind;
+  defaultOtherInstitutionName?: string;
   initial?: ScheduleEntry | null;
   onClose: () => void;
   onSubmit: (input: ScheduleEntryInput) => Promise<void>;
@@ -52,6 +54,8 @@ export function ScheduleFormModal({
   open,
   title,
   defaultDateKey,
+  defaultInstitutionKind,
+  defaultOtherInstitutionName,
   initial,
   onClose,
   onSubmit,
@@ -64,6 +68,14 @@ export function ScheduleFormModal({
   const [endTime, setEndTime] = useState<string>("08:00");
   const [room, setRoom] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    if (initial) return;
+    const kind = defaultInstitutionKind ?? "CESDE";
+    setInstitutionKind(kind);
+    setInstitutionName(kind === "OTRA" ? (defaultOtherInstitutionName ?? "") : "");
+  }, [defaultInstitutionKind, defaultOtherInstitutionName, initial, open]);
 
   const canSubmit = useMemo(() => {
     if (!parseDateKey(dateKey)) return false;

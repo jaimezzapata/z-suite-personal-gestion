@@ -10,6 +10,7 @@ import type { Payslip } from "@/features/payslips/types";
 import { useScheduleEntries } from "@/features/schedules/hooks/useScheduleEntries";
 import { dateKeyFromParts } from "@/features/schedules/utils/dateKey";
 import { minutesPerHourUnit } from "@/features/schedules/utils/time";
+import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
 import { useCurrentUser } from "@/shared/auth/CurrentUserContext";
 import { isDarkHex, isValidHex, normalizeHex } from "@/shared/utils/color";
 import { formatMoney } from "@/shared/utils/format";
@@ -129,26 +130,47 @@ function getCompanyChartColor(company: { colorHex?: string; colorKey?: string })
 }
 
 function Sparkline({ values }: { values: number[] }) {
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => setAnimate(true), []);
   const max = Math.max(1, ...values);
   const w = 120;
   const h = 36;
-  const points = values
-    .map((v, i) => {
-      const x = (i / Math.max(1, values.length - 1)) * (w - 2) + 1;
-      const y = h - (v / max) * (h - 2) - 1;
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const pts = values.map((v, i) => {
+    const x = (i / Math.max(1, values.length - 1)) * (w - 2) + 1;
+    const y = h - (v / max) * (h - 2) - 1;
+    return { x, y };
+  });
+
+  const dLine =
+    pts.length >= 2
+      ? `M ${pts[0]!.x} ${pts[0]!.y} ` + pts.slice(1).map((p) => `L ${p.x} ${p.y}`).join(" ")
+      : `M 1 ${h - 1} L ${w - 1} ${h - 1}`;
+
+  const dArea =
+    pts.length >= 2
+      ? `${dLine} L ${w - 1} ${h - 1} L 1 ${h - 1} Z`
+      : `M 1 ${h - 1} L ${w - 1} ${h - 1} Z`;
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-10 w-full">
-      <polyline
-        points={points}
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.24" />
+          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={dArea} fill="url(#sparkFill)" opacity={animate ? 1 : 0} style={{ transition: "opacity 700ms ease-out" }} />
+      <path
+        d={dLine}
         fill="none"
         stroke="var(--primary)"
         strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
+        pathLength={100}
+        strokeDasharray={100}
+        strokeDashoffset={animate ? 0 : 100}
+        style={{ transition: "stroke-dashoffset 900ms ease-out" }}
       />
     </svg>
   );
@@ -294,8 +316,85 @@ function CategoryBarList({
   );
 }
 
+function DonutChart({
+  items,
+}: {
+  items: Array<{ label: string; value: number; color: string }>;
+}) {
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => setAnimate(true), []);
+
+  const total = items.reduce((acc, i) => acc + i.value, 0);
+  const r = 16;
+  const c = 2 * Math.PI * r;
+  const stroke = 6;
+
+  let accLen = 0;
+  const segments = items
+    .filter((i) => i.value > 0)
+    .map((i) => {
+      const len = total > 0 ? (i.value / total) * c : 0;
+      const startOffset = -accLen;
+      accLen += len;
+      return { ...i, len, startOffset };
+    })
+    .filter((s) => s.len > 0);
+
+  return (
+    <div className="flex items-center justify-center">
+      <svg viewBox="0 0 40 40" className="h-24 w-24">
+        <g
+          style={{
+            transformOrigin: "20px 20px",
+            transform: animate ? "scale(1)" : "scale(0.94)",
+            opacity: animate ? 1 : 0,
+            transition: "transform 600ms ease-out, opacity 600ms ease-out",
+          }}
+        >
+          <circle
+            cx="20"
+            cy="20"
+            r={r}
+            fill="none"
+            stroke="var(--color-border)"
+            strokeWidth={stroke}
+            opacity="0.6"
+          />
+          {segments.map((s) => (
+            <circle
+              key={s.label}
+              cx="20"
+              cy="20"
+              r={r}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={`${animate ? s.len : 0} ${c - s.len}`}
+              strokeDashoffset={s.startOffset}
+              transform="rotate(-90 20 20)"
+              style={{ transition: "stroke-dasharray 900ms ease-out" }}
+            />
+          ))}
+        </g>
+        <text
+          x="20"
+          y="22"
+          textAnchor="middle"
+          fontSize="10"
+          fontWeight="800"
+          fill="var(--color-foreground)"
+        >
+          {total > 0 ? "100%" : "0%"}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 export function DashboardView() {
   const { uid } = useCurrentUser();
+  const { settings, loading: settingsLoading, update: updateSettings } = useUserSettings(uid);
   const { companies, loading: companiesLoading } = useCompanies(uid);
   const { payslips, loading: payslipsLoading } = usePayslips(uid);
   const { expenses, loading: expensesLoading } = useExpenses(uid);
@@ -307,6 +406,7 @@ export function DashboardView() {
   const [todayKey, setTodayKey] = useState<string>("2000-01-01");
   const [hoursBaseKey, setHoursBaseKey] = useState<string>("2000-01-01");
   const [hoursTab, setHoursTab] = useState<"day" | "week" | "biweekly" | "month">("day");
+  const [appliedSettings, setAppliedSettings] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -316,6 +416,25 @@ export function DashboardView() {
     setTodayKey(dateKeyFromDate(now));
     setHoursBaseKey(dateKeyFromDate(now));
   }, []);
+
+  useEffect(() => {
+    if (settingsLoading) return;
+    if (appliedSettings) return;
+    setAppliedSettings(true);
+
+    if (settings.dashboard.rememberPeriod && settings.dashboard.lastPeriod) {
+      setPeriod(settings.dashboard.lastPeriod);
+      setHoursBaseKey(`${monthKey(settings.dashboard.lastPeriod.year, settings.dashboard.lastPeriod.month1Based)}-01`);
+    }
+  }, [appliedSettings, settings.dashboard.lastPeriod, settings.dashboard.rememberPeriod, settingsLoading]);
+
+  useEffect(() => {
+    if (!appliedSettings) return;
+    if (!settings.dashboard.rememberPeriod) return;
+    void updateSettings({
+      dashboard: { ...settings.dashboard, lastPeriod: { year: period.year, month1Based: period.month1Based } },
+    });
+  }, [appliedSettings, period.month1Based, period.year, settings.dashboard, settings.dashboard.rememberPeriod, updateSettings]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -416,6 +535,8 @@ export function DashboardView() {
     return { savingsAll: incomeAll - expensesAll };
   }, [expenses, payslips]);
 
+  const monthSavings = useMemo(() => monthIncome - monthExpenses, [monthExpenses, monthIncome]);
+
   const spendPct = useMemo(() => {
     if (!Number.isFinite(monthIncome) || monthIncome <= 0) return 0;
     const pct = monthExpenses / monthIncome;
@@ -438,6 +559,8 @@ export function DashboardView() {
       .sort((a, b) => b.value - a.value);
     return rows;
   }, [companies, filteredPayslips]);
+
+  const topIncomeByCompany = useMemo(() => incomeByCompany.slice(0, 6), [incomeByCompany]);
 
   const incomeTrend = useMemo(() => {
     const values: number[] = [];
@@ -575,15 +698,15 @@ export function DashboardView() {
         <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--postit-yellow)] p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-foreground)]">
-              Ahorro (saldo)
+              Ahorro
             </div>
             <PiggyBank className="h-4 w-4 text-[color:var(--color-foreground)]" />
           </div>
           <div className="mt-2 text-2xl font-extrabold tracking-tight text-[color:var(--color-foreground)]">
-            {loading ? "…" : formatMoney(savingsAll, "COP")}
+            {loading ? "…" : formatMoney(settings.dashboard.showSavingsAll ? savingsAll : monthSavings, "COP")}
           </div>
           <div className="mt-2 text-xs font-semibold text-[color:var(--color-muted)]">
-            Total histórico: colillas − gastos
+            {settings.dashboard.showSavingsAll ? "Saldo histórico" : "Saldo del mes"}
           </div>
         </div>
 
@@ -618,7 +741,30 @@ export function DashboardView() {
               Cargando…
             </div>
           ) : incomeByCompany.length ? (
-            <BarList items={incomeByCompany} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
+              <DonutChart items={topIncomeByCompany} />
+              <div className="space-y-2">
+                {topIncomeByCompany.map((i) => (
+                  <div key={i.label} className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: i.color }}
+                      />
+                      <div className="truncate text-sm font-semibold text-[color:var(--color-foreground)]">
+                        {i.label}
+                      </div>
+                    </div>
+                    <div className="text-sm font-semibold text-[color:var(--color-foreground)]">
+                      {formatMoney(i.value, "COP")}
+                    </div>
+                  </div>
+                ))}
+                <div className="mt-2 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 text-xs font-semibold text-[color:var(--color-muted)]">
+                  Total: {formatMoney(monthIncome, "COP")}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 text-sm text-[color:var(--color-muted)]">
               Aún no hay colillas en este periodo.

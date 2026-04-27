@@ -30,6 +30,7 @@ import {
   minutesPerHourUnit,
   minutesToTime,
 } from "@/features/schedules/utils/time";
+import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
 
@@ -116,6 +117,7 @@ export function SchedulesView({ uid }: Props) {
 
   const { entries, loading, error } = useScheduleEntries(uid, range);
   const { companies } = useCompanies(uid);
+  const { settings } = useUserSettings(uid);
 
   const companiesByName = useMemo(() => {
     const map = new Map<string, { colorKey?: string; colorHex?: string }>();
@@ -799,6 +801,8 @@ export function SchedulesView({ uid }: Props) {
         open={modalOpen}
         title={editing ? "Editar horario" : "Nuevo horario"}
         defaultDateKey={selectedDateKey}
+        defaultInstitutionKind={settings.schedules.defaultInstitutionKind}
+        defaultOtherInstitutionName={settings.schedules.defaultOtherInstitutionName}
         initial={editing}
         onClose={() => setModalOpen(false)}
         onSubmit={editing ? handleUpdate : handleCreate}
@@ -809,6 +813,8 @@ export function SchedulesView({ uid }: Props) {
         uid={uid}
         dateKey={selectedDateKey}
         defaultBulkEndKey={endKeyForMonth(selectedDateKey)}
+        defaultInstitutionKind={settings.schedules.defaultInstitutionKind}
+        defaultOtherInstitutionName={settings.schedules.defaultOtherInstitutionName}
         onClose={() => setAddFromDayOpen(false)}
       />
 
