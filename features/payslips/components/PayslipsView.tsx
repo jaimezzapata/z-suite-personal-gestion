@@ -589,7 +589,7 @@ export function PayslipsView({ uid }: Props) {
         })}
       </div>
 
-      <CesdePayslipModal open={cesdeSlip !== null} payslip={cesdeSlip} onClose={() => setCesdeSlip(null)} />
+      <CesdePayslipModal uid={uid} open={cesdeSlip !== null} payslip={cesdeSlip} onClose={() => setCesdeSlip(null)} />
     </div>
   );
 }
