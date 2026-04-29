@@ -4,6 +4,7 @@ import {
   Banknote,
   CalendarDays,
   Clock,
+  FileText,
   Pencil,
   Save,
   Trash2,
@@ -23,6 +24,8 @@ import {
 import { buildPeriodKey, getBiweeklyRange, getMonthlyRange } from "@/features/payslips/utils/periods";
 import { periodLabel, periodTypeLabel } from "@/features/payslips/utils/labels";
 import { CesdeBiweeklyProjection } from "@/features/payslips/components/CesdeBiweeklyProjection";
+import { CesdePayslipModal } from "@/features/payslips/components/CesdePayslipModal";
+import { computeColombiaPayrollDeductions } from "@/features/payslips/utils/colombiaPayroll";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
 import { isDarkHex, isValidHex, normalizeHex } from "@/shared/utils/color";
@@ -32,10 +35,16 @@ type Props = {
   uid: string;
 };
 
+function isCesdeCompany(name: string | null | undefined) {
+  const n = (name ?? "").trim().toUpperCase();
+  return n === "CESDE" || n.startsWith("CESDE ");
+}
+
 export function PayslipsView({ uid }: Props) {
   const { companies, loading: companiesLoading } = useCompanies(uid);
   const { payslips, loading, error } = usePayslips(uid);
 
+  const [cesdeSlip, setCesdeSlip] = useState<Payslip | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -106,6 +115,18 @@ export function PayslipsView({ uid }: Props) {
     const n = Number(amount);
     return Number.isFinite(n) && n > 0;
   }, [selectedCompany, amount]);
+
+  const selectedGross = useMemo(() => {
+    const n = Number(amount);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [amount]);
+
+  const selectedDeductions = useMemo(() => {
+    if (!selectedCompany) return null;
+    if (!isCesdeCompany(selectedCompany.name)) return null;
+    if (selectedGross == null) return null;
+    return computeColombiaPayrollDeductions(selectedGross);
+  }, [selectedCompany, selectedGross]);
 
   async function handleCreate(input: PayslipInput) {
     try {
@@ -358,6 +379,56 @@ export function PayslipsView({ uid }: Props) {
             <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] p-3 text-xs text-[color:var(--color-muted)]">
               Periodo: {formatDateWithWeekday(period.start)} - {formatDateWithWeekday(period.end)}
             </div>
+
+            {selectedCompany && selectedDeductions ? (
+              <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4">
+                <div className="text-xs font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                  Colilla (CESDE) · Deducciones ley
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2">
+                    <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                      Devengado
+                    </div>
+                    <div className="mt-0.5 text-sm font-extrabold text-[color:var(--color-foreground)]">
+                      {formatMoney(selectedDeductions.base, selectedCompany.currency)}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2">
+                    <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                      Deducciones
+                    </div>
+                    <div className="mt-0.5 text-sm font-extrabold text-[color:var(--color-foreground)]">
+                      {formatMoney(selectedDeductions.total, selectedCompany.currency)}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--postit-green)] px-3 py-2">
+                    <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                      Neto
+                    </div>
+                    <div className="mt-0.5 text-sm font-extrabold text-[color:var(--color-foreground)]">
+                      {formatMoney(selectedDeductions.net, selectedCompany.currency)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-xs font-semibold">
+                    <div className="text-[color:var(--color-muted)]">Salud (4%)</div>
+                    <div className="text-[color:var(--color-foreground)]">
+                      {formatMoney(selectedDeductions.health, selectedCompany.currency)}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-xs font-semibold">
+                    <div className="text-[color:var(--color-muted)]">Pensión (4%)</div>
+                    <div className="text-[color:var(--color-foreground)]">
+                      {formatMoney(selectedDeductions.pension, selectedCompany.currency)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -440,6 +511,21 @@ export function PayslipsView({ uid }: Props) {
                   <div className={["mt-2 text-sm font-semibold", titleClass].join(" ")}>
                     {formatMoney(p.amount, p.currency)}
                   </div>
+
+                  {isCesdeCompany(p.companyName) ? (
+                    <div className={["mt-2 text-xs font-semibold", mutedClass].join(" ")}>
+                      {(() => {
+                        const d = computeColombiaPayrollDeductions(p.amount);
+                        return (
+                          <>
+                            DEDUCCIONES: {formatMoney(d.total, p.currency)} · NETO:{" "}
+                            <span className={titleClass}>{formatMoney(d.net, p.currency)}</span>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+
                   {p.createdAt ? (
                     <div className={["mt-2 text-xs", mutedClass].join(" ")}>
                       REGISTRO: {formatDateWithWeekday(p.createdAt.toDate())}
@@ -452,7 +538,20 @@ export function PayslipsView({ uid }: Props) {
                   ) : null}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col items-center gap-2">
+                  {isCesdeCompany(p.companyName) ? (
+                    <button
+                      type="button"
+                      onClick={() => setCesdeSlip(p)}
+                      className={[
+                        "inline-flex h-10 w-10 items-center justify-center rounded-2xl border transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
+                        iconButtonClass,
+                      ].join(" ")}
+                      aria-label="Ver colilla"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => {
@@ -490,6 +589,7 @@ export function PayslipsView({ uid }: Props) {
         })}
       </div>
 
+      <CesdePayslipModal open={cesdeSlip !== null} payslip={cesdeSlip} onClose={() => setCesdeSlip(null)} />
     </div>
   );
 }
