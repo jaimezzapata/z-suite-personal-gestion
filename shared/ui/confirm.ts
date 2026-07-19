@@ -1,5 +1,8 @@
 "use client";
 
+import type { CSSProperties } from "react";
+import { toast as sonnerToast } from "sonner";
+
 type ConfirmOptions = {
   title: string;
   message: string;
@@ -8,16 +11,6 @@ type ConfirmOptions = {
   variant?: "default" | "danger";
 };
 
-let loadPromise: Promise<any> | null = null;
-
-async function getIziToast(): Promise<any | null> {
-  if (typeof window === "undefined") return null;
-  if (!loadPromise) {
-    loadPromise = import("izitoast").then((m) => (m as any).default ?? m);
-  }
-  return await loadPromise;
-}
-
 export async function confirm({
   title,
   message,
@@ -25,8 +18,7 @@ export async function confirm({
   cancelText = "Cancelar",
   variant = "default",
 }: ConfirmOptions): Promise<boolean> {
-  const iziToast = await getIziToast();
-  if (!iziToast) return false;
+  if (typeof window === "undefined") return false;
 
   return await new Promise<boolean>((resolve) => {
     let settled = false;
@@ -36,93 +28,77 @@ export async function confirm({
       resolve(value);
     };
 
-    console.groupCollapsed("[confirm]", title);
-    console.log({ title, message, okText, cancelText, variant });
-    console.groupEnd();
-
     const inferredDanger =
       variant === "danger" || /eliminar/i.test(title) || /eliminar/i.test(okText);
 
-    const okStyle = inferredDanger
-      ? [
-          "height:44px",
-          "padding:0 16px",
-          "border-radius:16px",
-          "border:1px solid rgba(220,38,38,0.35)",
-          "background:rgba(220,38,38,0.12)",
-          "color:#b91c1c",
-          "font-weight:900",
-          "font-size:14px",
-          "display:inline-flex",
-          "align-items:center",
-          "justify-content:center",
-          "cursor:pointer",
-        ].join(";")
-      : [
-          "height:44px",
-          "padding:0 16px",
-          "border-radius:16px",
-          "border:1px solid rgba(107,124,255,0.35)",
-          "background:#6b7cff",
-          "color:#ffffff",
-          "font-weight:900",
-          "font-size:14px",
-          "display:inline-flex",
-          "align-items:center",
-          "justify-content:center",
-          "cursor:pointer",
-        ].join(";");
+    const actionButtonStyle: CSSProperties = inferredDanger
+      ? {
+          minHeight: 40,
+          padding: "0 14px",
+          borderRadius: 12,
+          border: "1px solid rgba(220, 38, 38, 0.35)",
+          background: "rgba(220, 38, 38, 0.12)",
+          color: "#b91c1c",
+          fontWeight: 700,
+          cursor: "pointer",
+        }
+      : {
+          minHeight: 40,
+          padding: "0 14px",
+          borderRadius: 12,
+          border: "1px solid rgba(37, 99, 235, 0.2)",
+          background: "#2563eb",
+          color: "#ffffff",
+          fontWeight: 700,
+          cursor: "pointer",
+        };
 
-    const cancelStyle = [
-      "height:44px",
-      "padding:0 16px",
-      "border-radius:16px",
-      "border:1px solid #e8eaf6",
-      "background:#f6f7ff",
-      "color:#111827",
-      "font-weight:900",
-      "font-size:14px",
-      "display:inline-flex",
-      "align-items:center",
-      "justify-content:center",
-      "cursor:pointer",
-    ].join(";");
+    const cancelButtonStyle: CSSProperties = {
+      minHeight: 40,
+      padding: "0 14px",
+      borderRadius: 12,
+      border: "1px solid #dbe1ea",
+      background: "#ffffff",
+      color: "#0f172a",
+      fontWeight: 700,
+      cursor: "pointer",
+    };
 
-    iziToast.show({
-      title,
-      message,
-      position: "center",
-      timeout: false,
-      close: false,
-      overlay: true,
-      overlayClose: true,
-      drag: false,
-      backgroundColor: "#ffffff",
-      progressBar: false,
-      padding: 16,
-      radius: 20,
-      buttons: [
-        [
-          `<button type="button" style="${okStyle}">${okText}</button>`,
-          (instance: any, toast: any) => {
-            console.log("[confirm] ok click", { title });
-            settle(true);
-            instance.hide({ transitionOut: "fadeOut" }, toast, "button");
-          },
-          true,
-        ],
-        [
-          `<button type="button" style="${cancelStyle}">${cancelText}</button>`,
-          (instance: any, toast: any) => {
-            console.log("[confirm] cancel click", { title });
-            settle(false);
-            instance.hide({ transitionOut: "fadeOut" }, toast, "button");
-          },
-          false,
-        ],
-      ],
-      onClosing: () => {
-        console.log("[confirm] closing", { title });
+    const toastId = sonnerToast(title, {
+      description: message,
+      position: "top-center",
+      duration: Number.POSITIVE_INFINITY,
+      closeButton: false,
+      dismissible: true,
+      action: {
+        label: okText,
+        onClick: () => {
+          settle(true);
+          sonnerToast.dismiss(toastId);
+        },
+      },
+      cancel: {
+        label: cancelText,
+        onClick: () => {
+          settle(false);
+          sonnerToast.dismiss(toastId);
+        },
+      },
+      actionButtonStyle,
+      cancelButtonStyle,
+      style: {
+        width: "min(92vw, 420px)",
+        borderRadius: 18,
+        border: inferredDanger
+          ? "1px solid rgba(220, 38, 38, 0.18)"
+          : "1px solid rgba(37, 99, 235, 0.12)",
+        background: "#ffffff",
+        boxShadow: "0 18px 48px rgba(15, 23, 42, 0.14)",
+      },
+      onDismiss: () => {
+        settle(false);
+      },
+      onAutoClose: () => {
         settle(false);
       },
     });

@@ -18,11 +18,13 @@ function userExpensesCollectionPath(uid: string) {
 export async function createExpense(uid: string, input: ExpenseInput) {
   const col = collection(firestore, userExpensesCollectionPath(uid));
   const ref = doc(col);
+  const counterpartyName = input.counterpartyName?.trim() ? input.counterpartyName.trim() : null;
 
   await setDoc(ref, {
     amount: input.amount,
     currency: "COP",
     category: input.category,
+    counterpartyName,
     date: Timestamp.fromDate(new Date()),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -36,10 +38,12 @@ export async function updateExpense(
   input: ExpenseInput,
 ) {
   const ref = doc(firestore, userExpensesCollectionPath(uid), expenseId);
+  const counterpartyName = input.counterpartyName?.trim() ? input.counterpartyName.trim() : null;
   return updateDoc(ref, {
     amount: input.amount,
     currency: "COP",
     category: input.category,
+    counterpartyName,
     updatedAt: serverTimestamp(),
   });
 }

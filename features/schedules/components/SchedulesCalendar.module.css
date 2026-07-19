@@ -1,0 +1,247 @@
+.calendarShell {
+  width: 100%;
+}
+
+.calendar {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+}
+
+.tileOutside {
+  background: color-mix(in srgb, var(--color-surface-2) 84%, transparent) !important;
+}
+
+.tileBusy {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, var(--color-border));
+}
+
+.countBadge {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 2;
+  display: inline-flex;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--postit-yellow);
+  padding: 0 0.28rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-foreground);
+}
+
+.hoursChip {
+  position: absolute;
+  left: 0.34rem;
+  bottom: 0.34rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-surface-2) 92%, white);
+  padding: 0.18rem 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-muted);
+}
+
+.heatDot {
+  position: absolute;
+  right: 0.42rem;
+  bottom: 0.42rem;
+  z-index: 1;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.calendarShell :global(.react-calendar) {
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
+.calendarShell :global(.react-calendar__navigation) {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.calendarShell :global(.react-calendar__navigation button) {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.calendarShell :global(.react-calendar__navigation button:hover) {
+  background: var(--color-surface-2);
+}
+
+.calendarShell :global(.react-calendar__navigation button:disabled) {
+  opacity: 0.45;
+}
+
+.calendarShell :global(.react-calendar__navigation__arrow) {
+  height: 2.5rem;
+}
+
+.calendarShell :global(.react-calendar__navigation__label) {
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.calendarShell :global(.react-calendar__month-view__weekdays) {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+
+.calendarShell :global(.react-calendar__month-view__weekdays__weekday) {
+  padding: 0;
+  text-align: center;
+}
+
+.calendarShell :global(.react-calendar__month-view__weekdays__weekday abbr) {
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--color-muted);
+}
+
+.calendarShell :global(.react-calendar__month-view__days) {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.calendarShell :global(.react-calendar__tile) {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 4.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 1.2rem;
+  background: var(--color-surface);
+  padding: 0.42rem;
+  text-align: left;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.calendarShell :global(.react-calendar__tile:hover) {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--postit-blue));
+}
+
+.calendarShell :global(.react-calendar__tile abbr) {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: none;
+  color: var(--color-foreground);
+}
+
+.calendarShell :global(.react-calendar__month-view__days__day--neighboringMonth abbr) {
+  color: color-mix(in srgb, var(--color-muted) 78%, transparent);
+}
+
+.calendarShell :global(.react-calendar__tile--now) {
+  background: color-mix(in srgb, var(--color-primary) 8%, white);
+}
+
+.calendarShell :global(.react-calendar__tile--active) {
+  background: var(--color-surface) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px var(--primary-ring);
+}
+
+.calendarShell :global(.react-calendar__tile--active abbr) {
+  color: var(--color-foreground) !important;
+}
+
+@media (max-width: 640px) {
+  .calendarShell :global(.react-calendar__navigation) {
+    grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .calendarShell :global(.react-calendar__navigation__arrow),
+  .calendarShell :global(.react-calendar__navigation__label) {
+    height: 2.25rem;
+  }
+
+  .calendarShell :global(.react-calendar__navigation__label) {
+    font-size: 0.82rem;
+  }
+
+  .calendarShell :global(.react-calendar__month-view__weekdays) {
+    gap: 0.25rem;
+  }
+
+  .calendarShell :global(.react-calendar__month-view__weekdays__weekday abbr) {
+    font-size: 0.68rem;
+  }
+
+  .calendarShell :global(.react-calendar__month-view__days) {
+    gap: 0.25rem;
+  }
+
+  .calendarShell :global(.react-calendar__tile) {
+    min-height: 3.95rem;
+    border-radius: 1rem;
+    padding: 0.35rem;
+  }
+
+  .calendarShell :global(.react-calendar__tile abbr) {
+    top: 0.42rem;
+    left: 0.42rem;
+    font-size: 0.92rem;
+  }
+
+  .countBadge {
+    top: 0.26rem;
+    right: 0.26rem;
+    min-width: 1.08rem;
+    height: 1.08rem;
+    font-size: 0.56rem;
+  }
+
+  .hoursChip {
+    left: 0.28rem;
+    bottom: 0.28rem;
+    padding: 0.16rem 0.34rem;
+    font-size: 0.56rem;
+  }
+
+  .heatDot {
+    right: 0.34rem;
+    bottom: 0.34rem;
+  }
+}

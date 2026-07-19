@@ -55,6 +55,7 @@ type Props = {
 export function ExpenseFormModal({ open, title, initial, onClose, onSubmit }: Props) {
   const [amount, setAmount] = useState<string>("");
   const [category, setCategory] = useState<ExpenseCategory>("COMIDA");
+  const [counterpartyName, setCounterpartyName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(() => {
@@ -68,9 +69,11 @@ export function ExpenseFormModal({ open, title, initial, onClose, onSubmit }: Pr
     if (initial) {
       setAmount(String(initial.amount));
       setCategory(initial.category);
+      setCounterpartyName(initial.counterpartyName?.trim() ?? "");
     } else {
       setAmount("");
       setCategory("COMIDA");
+      setCounterpartyName("");
     }
     setLoading(false);
   }, [open, initial]);
@@ -83,6 +86,7 @@ export function ExpenseFormModal({ open, title, initial, onClose, onSubmit }: Pr
       const input: ExpenseInput = {
         amount: Number(amount),
         category,
+        counterpartyName,
       };
       await onSubmit(input);
       onClose();
@@ -172,6 +176,21 @@ export function ExpenseFormModal({ open, title, initial, onClose, onSubmit }: Pr
                   );
                 })}
               </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-[color:var(--color-foreground)]">
+                  Entidad o persona
+                </label>
+                <input
+                  value={counterpartyName}
+                  onChange={(e) => setCounterpartyName(e.target.value)}
+                  placeholder="Ej. D1, Bancolombia, Juan Pérez"
+                  className="h-11 w-full rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 text-sm text-[color:var(--color-foreground)] outline-none transition-colors duration-150 placeholder:text-[color:var(--color-muted)] focus:border-[color:var(--color-primary)] focus:ring-4 focus:ring-[color:var(--primary-ring)]"
+                />
+                <div className="text-xs text-[color:var(--color-muted)]">
+                  Opcional. Guarda a quién le pagaste o dónde compraste.
+                </div>
               </div>
             </div>
 

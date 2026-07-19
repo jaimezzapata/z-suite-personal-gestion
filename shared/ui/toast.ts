@@ -1,5 +1,7 @@
 "use client";
 
+import { toast as sonnerToast } from "sonner";
+
 type ToastKind = "success" | "error" | "info" | "warning";
 
 type ToastOptions = {
@@ -7,41 +9,29 @@ type ToastOptions = {
   message: string;
 };
 
-let loadPromise: Promise<unknown> | null = null;
-
-async function getIziToast(): Promise<Record<string, unknown> | null> {
-  if (typeof window === "undefined") return null;
-  if (!loadPromise) {
-    loadPromise = import("izitoast").then((m) => (m as any).default ?? m);
-  }
-  return (await loadPromise) as Record<string, unknown>;
-}
-
 function show(kind: ToastKind, { title, message }: ToastOptions) {
-  void getIziToast().then((iziToast) => {
-    if (!iziToast) return;
-    const opts = {
-      title,
-      message,
-      position: "topRight",
-      timeout: 3500,
-      closeOnEscape: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      progressBar: true,
-    } as Record<string, unknown>;
+  const content = title ?? message;
+  const description = title ? message : undefined;
+  const options = {
+    description,
+    duration: 3500,
+    closeButton: true,
+  };
 
-    const themed = (iziToast as any)[kind];
-    if (typeof themed === "function") {
-      themed.call(iziToast, opts);
-      return;
-    }
-
-    const fallbackShow = (iziToast as any).show;
-    if (typeof fallbackShow === "function") {
-      fallbackShow.call(iziToast, { ...opts, color: kind });
-    }
-  });
+  switch (kind) {
+    case "success":
+      sonnerToast.success(content, options);
+      break;
+    case "error":
+      sonnerToast.error(content, options);
+      break;
+    case "info":
+      sonnerToast.info(content, options);
+      break;
+    case "warning":
+      sonnerToast.warning(content, options);
+      break;
+  }
 }
 
 export const toast = {

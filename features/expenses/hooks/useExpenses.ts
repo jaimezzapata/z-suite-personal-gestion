@@ -23,7 +23,7 @@ type ExpenseDoc = Omit<Expense, "id" | "date"> & {
   date: Timestamp;
   currency?: unknown;
   category?: unknown;
-  concept?: string | null;
+  counterpartyName?: unknown;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 };
@@ -33,6 +33,12 @@ function coerceCategory(value: unknown): ExpenseCategory {
     return value as ExpenseCategory;
   }
   return "OTROS";
+}
+
+function coerceCounterpartyName(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 export function useExpenses(uid: string | null | undefined): State {
@@ -65,6 +71,7 @@ export function useExpenses(uid: string | null | undefined): State {
             amount: data.amount,
             currency: "COP",
             category: coerceCategory(data.category),
+            counterpartyName: coerceCounterpartyName(data.counterpartyName),
             date: data.date,
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,

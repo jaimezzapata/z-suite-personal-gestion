@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AppToaster } from "@/shared/ui/AppToaster";
+import "react-calendar/dist/Calendar.css";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +31,7 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col overflow-x-hidden">
         {children}
+        <AppToaster />
       </body>
     </html>
   );

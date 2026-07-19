@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import Calendar from "react-calendar";
 
 import { useCompanies } from "@/features/companies/hooks/useCompanies";
 import { useScheduleEntries } from "@/features/schedules/hooks/useScheduleEntries";
@@ -38,6 +39,7 @@ import { formatDateKeyWithWeekday } from "@/shared/utils/format";
 import { ScheduleFormModal } from "./ScheduleFormModal";
 import { DeleteGroupModal } from "./DeleteGroupModal";
 import { AddScheduleFromDayModal } from "./AddScheduleFromDayModal";
+import styles from "./SchedulesCalendar.module.css";
 
 type Props = {
   uid: string;
@@ -54,6 +56,12 @@ function institutionLabel(kind: InstitutionKind, name?: string) {
 
 function formatDateKeyLabel(dateKey: string) {
   return formatDateKeyWithWeekday(dateKey);
+}
+
+function dateFromDateKey(dateKey: string) {
+  const parts = parseDateKey(dateKey);
+  if (!parts) return new Date();
+  return new Date(parts.year, parts.month1Based - 1, parts.day);
 }
 
 function round1(n: number) {
@@ -179,6 +187,8 @@ export function SchedulesView({ uid }: Props) {
     () => entriesByDate.get(selectedDateKey) ?? [],
     [entriesByDate, selectedDateKey],
   );
+
+  const selectedDate = useMemo(() => dateFromDateKey(selectedDateKey), [selectedDateKey]);
 
   const selectedEntriesSorted = useMemo(() => {
     return selectedEntries
@@ -381,26 +391,6 @@ export function SchedulesView({ uid }: Props) {
     }
   }
 
-  function goPrevMonth() {
-    setViewMonth1Based((m) => {
-      if (m === 1) {
-        setViewYear((y) => y - 1);
-        return 12;
-      }
-      return m - 1;
-    });
-  }
-
-  function goNextMonth() {
-    setViewMonth1Based((m) => {
-      if (m === 12) {
-        setViewYear((y) => y + 1);
-        return 1;
-      }
-      return m + 1;
-    });
-  }
-
   if (!mounted) return null;
 
   function endKeyForMonth(dateKey: string) {
@@ -444,109 +434,86 @@ export function SchedulesView({ uid }: Props) {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={goPrevMonth}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)]"
-            aria-label="Mes anterior"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+      <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3 shadow-sm sm:p-4 md:p-5">
+        <div className={styles.calendarShell}>
+          <Calendar
+            className={styles.calendar}
+            calendarType="iso8601"
+            maxDetail="month"
+            minDetail="month"
+            next2Label={null}
+            prev2Label={null}
+            nextLabel={<ChevronRight className="mx-auto h-5 w-5" />}
+            prevLabel={<ChevronLeft className="mx-auto h-5 w-5" />}
+            activeStartDate={new Date(viewYear, viewMonth1Based - 1, 1)}
+            value={selectedDate}
+            showFixedNumberOfWeeks
+            showNeighboringMonth
+            formatMonthYear={(_locale, date) => monthLabel(date.getFullYear(), date.getMonth() + 1)}
+            formatShortWeekday={(_locale, date) =>
+              ["D", "L", "M", "X", "J", "V", "S"][date.getDay()] ?? ""
+            }
+            onActiveStartDateChange={({ activeStartDate, view }) => {
+              if (view !== "month" || !activeStartDate) return;
+              setViewYear(activeStartDate.getFullYear());
+              setViewMonth1Based(activeStartDate.getMonth() + 1);
+            }}
+            onClickDay={(date) => {
+              const dateKey = dateKeyFromParts(
+                date.getFullYear(),
+                date.getMonth() + 1,
+                date.getDate(),
+              );
+              setSelectedDateKey(dateKey);
+              setAddFromDayOpen(true);
+            }}
+            tileClassName={({ date, view }) => {
+              if (view !== "month") return undefined;
+              const inMonth =
+                date.getFullYear() === viewYear && date.getMonth() + 1 === viewMonth1Based;
+              const dateKey = dateKeyFromParts(
+                date.getFullYear(),
+                date.getMonth() + 1,
+                date.getDate(),
+              );
+              return [
+                !inMonth ? styles.tileOutside : "",
+                (entriesByDate.get(dateKey)?.length ?? 0) > 0 ? styles.tileBusy : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+            }}
+            tileContent={({ date, view }) => {
+              if (view !== "month") return null;
+              const dateKey = dateKeyFromParts(
+                date.getFullYear(),
+                date.getMonth() + 1,
+                date.getDate(),
+              );
+              const count = entriesByDate.get(dateKey)?.length ?? 0;
+              const hours = hoursByDateKey.get(dateKey) ?? 0;
+              const ratio = maxInMonthHours > 0 ? Math.min(1, hours / maxInMonthHours) : 0;
+              const dotSize = hours > 0 ? Math.round(4 + ratio * 8) : 0;
+              const dotAlpha = hours > 0 ? 0.12 + ratio * 0.26 : 0;
 
-          <div className="text-sm font-semibold text-[color:var(--color-foreground)]">
-            {monthLabel(viewYear, viewMonth1Based)}
-          </div>
-
-          <button
-            type="button"
-            onClick={goNextMonth}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)] transition-colors hover:bg-[color:var(--color-surface-2)]"
-            aria-label="Mes siguiente"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="mt-4 grid grid-cols-7 gap-2 text-xs font-semibold text-[color:var(--color-muted)]">
-          {["L", "M", "X", "J", "V", "S", "D"].map((d) => (
-            <div key={d} className="px-1 text-center">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-2 grid grid-cols-7 gap-2">
-          {grid.map((day) => {
-            const isSelected = day.dateKey === selectedDateKey;
-            const count = entriesByDate.get(day.dateKey)?.length ?? 0;
-            const hours = hoursByDateKey.get(day.dateKey) ?? 0;
-            const ratio = maxInMonthHours > 0 ? Math.min(1, hours / maxInMonthHours) : 0;
-            const dotSize = hours > 0 ? Math.round(4 + ratio * 8) : 0;
-            const dotAlpha = hours > 0 ? 0.12 + ratio * 0.26 : 0;
-            const dotColor = primaryHeatColor(dotAlpha);
-
-            return (
-              <button
-                key={day.dateKey}
-                type="button"
-                onClick={() => {
-                  setSelectedDateKey(day.dateKey);
-                  setAddFromDayOpen(true);
-                }}
-                aria-pressed={isSelected}
-                className={[
-                  "relative min-h-[54px] rounded-2xl border p-1.5 text-left transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99]",
-                  day.inMonth
-                    ? "border-[color:var(--color-border)] bg-[color:var(--color-surface)]"
-                    : "border-[color:var(--color-border)] bg-[color:var(--color-surface-2)]",
-                  isSelected ? "ring-4 ring-[color:var(--primary-ring)]" : "",
-                ].join(" ")}
-              >
-                {count ? (
-                  <div className="absolute right-1 top-1 z-20 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--postit-yellow)] px-1 text-[9px] font-extrabold text-[color:var(--color-foreground)]">
-                    {count}
-                  </div>
-                ) : null}
-
-                <div className="relative z-10 flex items-start justify-between gap-1">
-                  <div
-                    className={[
-                      "text-xs font-extrabold",
-                      day.inMonth
-                        ? "text-[color:var(--color-foreground)]"
-                        : "text-[color:var(--color-muted)]",
-                    ].join(" ")}
-                  >
-                    {day.day}
-                  </div>
-                </div>
-
-                {hours ? (
-                  <div
-                    className={[
-                      "relative z-10 mt-1 text-[9px] font-extrabold",
-                      day.inMonth ? "text-[color:var(--color-muted)]" : "text-[color:var(--color-muted)] opacity-70",
-                    ].join(" ")}
-                  >
-                    {formatCompactHours(hours)}
-                  </div>
-                ) : null}
-
-                {dotSize ? (
-                  <div
-                    className="pointer-events-none absolute bottom-1.5 right-1.5 z-0 rounded-full"
-                    style={{
-                      width: `${dotSize}px`,
-                      height: `${dotSize}px`,
-                      backgroundColor: dotColor,
-                    }}
-                  />
-                ) : null}
-              </button>
-            );
-          })}
+              return (
+                <>
+                  {count ? <span className={styles.countBadge}>{count}</span> : null}
+                  {hours ? <span className={styles.hoursChip}>{formatCompactHours(hours)}</span> : null}
+                  {dotSize ? (
+                    <span
+                      className={styles.heatDot}
+                      style={{
+                        width: `${dotSize}px`,
+                        height: `${dotSize}px`,
+                        backgroundColor: primaryHeatColor(dotAlpha),
+                      }}
+                    />
+                  ) : null}
+                </>
+              );
+            }}
+          />
         </div>
       </div>
 

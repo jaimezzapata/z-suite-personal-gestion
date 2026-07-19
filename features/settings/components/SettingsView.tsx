@@ -5,6 +5,7 @@ import {
   LogOut,
   Save,
   Settings as SettingsIcon,
+  Trash2,
   Upload,
   User as UserIcon,
 } from "lucide-react";
@@ -17,9 +18,47 @@ import { usePayslips } from "@/features/payslips/hooks/usePayslips";
 import { fetchScheduleEntriesFromDate } from "@/features/schedules/services/schedulesService";
 import type { UserSettings } from "@/features/settings/types";
 import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
+import {
+  deleteFirestoreUserDataTarget,
+  resetFirestoreUserData,
+  type DangerZoneTarget,
+} from "@/features/settings/services/dangerZoneService";
 import { useCurrentUser } from "@/shared/auth/CurrentUserContext";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
+
+const DANGER_PHRASE = "ELIMINAR TODO";
+const DANGER_ITEMS: Array<{
+  target: DangerZoneTarget;
+  label: string;
+  description: string;
+}> = [
+  {
+    target: "companies",
+    label: "Empresas",
+    description: "Elimina empresas y su historial salarial asociado.",
+  },
+  {
+    target: "payslips",
+    label: "Colillas",
+    description: "Elimina todas las colillas guardadas.",
+  },
+  {
+    target: "expenses",
+    label: "Gastos",
+    description: "Elimina todos los gastos registrados.",
+  },
+  {
+    target: "schedules",
+    label: "Horarios",
+    description: "Elimina todos los horarios almacenados.",
+  },
+  {
+    target: "settings",
+    label: "Ajustes",
+    description: "Elimina el documento `settings/app` del usuario.",
+  },
+];
 
 function downloadJson(filename: string, data: unknown) {
   const json = JSON.stringify(data, null, 2);
@@ -84,8 +123,9 @@ export function SettingsView() {
   const { payslips } = usePayslips(user.uid);
   const { expenses } = useExpenses(user.uid);
 
-  const [busy, setBusy] = useState<null | "export" | "import" | "logout">(null);
+  const [busy, setBusy] = useState<null | "export" | "import" | "logout" | "resetAll" | DangerZoneTarget>(null);
   const [scheduleCount, setScheduleCount] = useState<number | null>(null);
+  const [dangerText, setDangerText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const safeName = (user.name ?? "").trim() || "—";
@@ -95,6 +135,7 @@ export function SettingsView() {
     const stamp = new Date().toISOString().slice(0, 10);
     return `z-suite_export_${stamp}.json`;
   }, []);
+  const dangerReady = dangerText.trim().toUpperCase() === DANGER_PHRASE;
 
   async function handleLogout() {
     if (busy) return;
@@ -149,7 +190,7 @@ export function SettingsView() {
     setBusy("import");
     try {
       const text = await file.text();
-      const json = JSON.parse(text) as any;
+      const json: unknown = JSON.parse(text);
       const nextSettings: Partial<UserSettings> | null =
         json && typeof json === "object" && json.settings && typeof json.settings === "object"
           ? (json.settings as Partial<UserSettings>)
@@ -173,6 +214,79 @@ export function SettingsView() {
       toast.success({ title: "Listo", message: "Ajustes importados" });
     } catch (e) {
       toast.error({ title: "Error", message: e instanceof Error ? e.message : "No se pudo importar" });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleResetAllFirestoreData() {
+    if (busy) return;
+
+    if (!dangerReady) {
+      toast.error({
+        title: "Confirmación incompleta",
+        message: `Escribe "${DANGER_PHRASE}" para habilitar este borrado.`,
+      });
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Eliminar todo Firestore",
+      message:
+        "Se eliminarán empresas, historial salarial, colillas, gastos, horarios y ajustes. No elimina tu cuenta de acceso.",
+      okText: "Eliminar todo",
+      cancelText: "Cancelar",
+      variant: "danger",
+    });
+    if (!ok) return;
+
+    setBusy("resetAll");
+    try {
+      const result = await resetFirestoreUserData(user.uid);
+      setScheduleCount(0);
+      setDangerText("");
+      toast.success({
+        title: "Datos eliminados",
+        message: `Se eliminaron ${result.total} registros de Firestore.`,
+      });
+    } catch (e) {
+      toast.error({
+        title: "Error",
+        message: e instanceof Error ? e.message : "No se pudo limpiar Firestore",
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDeleteFirestoreTarget(item: (typeof DANGER_ITEMS)[number]) {
+    if (busy) return;
+
+    const ok = await confirm({
+      title: `Eliminar ${item.label}`,
+      message: `${item.description} Esta acción no se puede deshacer.`,
+      okText: `Eliminar ${item.label}`,
+      cancelText: "Cancelar",
+      variant: "danger",
+    });
+    if (!ok) return;
+
+    setBusy(item.target);
+    try {
+      const deleted = await deleteFirestoreUserDataTarget(user.uid, item.target);
+      if (item.target === "schedules") {
+        setScheduleCount(0);
+      }
+      setDangerText("");
+      toast.success({
+        title: "Colección eliminada",
+        message: `${item.label}: ${deleted} registros eliminados.`,
+      });
+    } catch (e) {
+      toast.error({
+        title: "Error",
+        message: e instanceof Error ? e.message : `No se pudo eliminar ${item.label.toLowerCase()}`,
+      });
     } finally {
       setBusy(null);
     }
@@ -389,6 +503,123 @@ export function SettingsView() {
               {scheduleCount == null ? "—" : scheduleCount}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-red-200 bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-2xl border border-red-200 bg-red-50 text-red-700">
+              <Trash2 className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">Danger Zone</div>
+              <div className="mt-1 text-xs text-[color:var(--color-muted)]">
+                Elimina todos tus datos guardados en Firestore sin borrar tu cuenta de acceso.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            "Empresas",
+            "Empresas + historial",
+            "Colillas",
+            "Gastos",
+            "Horarios",
+            "Ajustes",
+          ].map((label) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-red-100 bg-red-50/60 px-3 py-2 text-xs font-semibold text-red-700"
+            >
+              {label}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-red-100 bg-red-50/50 p-3">
+          <div className="text-[11px] font-extrabold uppercase tracking-wide text-red-700">
+            Confirmación manual
+          </div>
+          <div className="mt-1 text-xs text-red-700/90">
+            Escribe <span className="font-extrabold">{DANGER_PHRASE}</span> para habilitar solo el borrado total.
+          </div>
+          <input
+            value={dangerText}
+            onChange={(e) => setDangerText(e.target.value)}
+            placeholder={DANGER_PHRASE}
+            disabled={busy !== null}
+            className="mt-3 h-11 w-full rounded-2xl border border-red-200 bg-white px-3 text-sm font-semibold text-[color:var(--color-foreground)] outline-none placeholder:text-red-300 focus:border-red-400 focus:ring-4 focus:ring-red-100 disabled:opacity-60"
+          />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {DANGER_ITEMS.map((item) => {
+            const countLabel =
+              item.target === "companies"
+                ? `${companies.length} visibles`
+                : item.target === "payslips"
+                  ? `${payslips.length} visibles`
+                  : item.target === "expenses"
+                    ? `${expenses.length} visibles`
+                    : item.target === "schedules"
+                      ? scheduleCount == null
+                        ? "conteo pendiente"
+                        : `${scheduleCount} cargados`
+                      : settingsLoading
+                        ? "cargando"
+                        : "documento app";
+
+            return (
+              <div
+                key={item.target}
+                className="rounded-2xl border border-red-100 bg-white p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
+                      {item.label}
+                    </div>
+                    <div className="mt-1 text-xs text-[color:var(--color-muted)]">
+                      {item.description}
+                    </div>
+                  </div>
+                  <span className="rounded-full border border-red-100 bg-red-50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-red-700">
+                    {countLabel}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  aria-label={`Eliminar ${item.label}`}
+                  onClick={() => void handleDeleteFirestoreTarget(item)}
+                  disabled={busy !== null}
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-700 transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {busy === item.target ? "Eliminando…" : `Eliminar ${item.label}`}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-[color:var(--color-muted)]">
+            “Horas” no se borra aparte porque se calcula desde horarios y empresas.
+          </div>
+          <button
+            type="button"
+            aria-label="Eliminar todos los datos de Firestore"
+            onClick={() => void handleResetAllFirestoreData()}
+            disabled={busy !== null || !dangerReady}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition-transform duration-150 hover:-translate-y-px active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" />
+            {busy === "resetAll" ? "Eliminando…" : "Eliminar todo"}
+          </button>
         </div>
       </div>
     </div>

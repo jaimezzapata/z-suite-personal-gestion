@@ -11,7 +11,7 @@ import {
   updateExpense,
 } from "@/features/expenses/services/expensesService";
 import { expenseCategoryLabel } from "@/features/expenses/utils/labels";
-import type { BiweeklyPart, ExpensePeriodType } from "@/features/expenses/utils/periods";
+import type { BiweeklyPart } from "@/features/expenses/utils/periods";
 import { getBiweeklyRange, getMonthlyRange } from "@/features/expenses/utils/periods";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
@@ -148,7 +148,7 @@ export function ExpensesView({ uid }: Props) {
               Gastos
             </div>
             <div className="text-sm text-[color:var(--color-muted)]">
-              Valor + categoría (fecha automática, COP).
+              Valor, categoría y entidad/persona (fecha automática, COP).
             </div>
           </div>
         </div>
@@ -232,6 +232,11 @@ export function ExpensesView({ uid }: Props) {
                   <div className="truncate text-base font-semibold text-[color:var(--color-foreground)]">
                     {expenseCategoryLabel(e.category)}
                   </div>
+                  {e.counterpartyName ? (
+                    <div className="mt-1 truncate text-sm font-semibold text-[color:var(--color-foreground)]">
+                      {e.counterpartyName}
+                    </div>
+                  ) : null}
                   <div className="mt-1 text-xs font-semibold text-[color:var(--color-muted)]">
                     {formatDateWithWeekday(e.date.toDate())}
                   </div>

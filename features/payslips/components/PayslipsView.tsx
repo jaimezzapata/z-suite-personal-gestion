@@ -26,10 +26,13 @@ import { periodLabel, periodTypeLabel } from "@/features/payslips/utils/labels";
 import { CesdeBiweeklyProjection } from "@/features/payslips/components/CesdeBiweeklyProjection";
 import { CesdePayslipModal } from "@/features/payslips/components/CesdePayslipModal";
 import { computeColombiaPayrollDeductions } from "@/features/payslips/utils/colombiaPayroll";
+import { useScheduleEntries } from "@/features/schedules/hooks/useScheduleEntries";
+import { minutesPerHourUnit } from "@/features/schedules/utils/time";
 import { confirm } from "@/shared/ui/confirm";
 import { toast } from "@/shared/ui/toast";
 import { isDarkHex, isValidHex, normalizeHex } from "@/shared/utils/color";
 import { formatDateWithWeekday, formatMoney } from "@/shared/utils/format";
+import { normalizeUpper } from "@/shared/utils/text";
 
 type Props = {
   uid: string;
@@ -38,6 +41,37 @@ type Props = {
 function isCesdeCompany(name: string | null | undefined) {
   const n = (name ?? "").trim().toUpperCase();
   return n === "CESDE" || n.startsWith("CESDE ");
+}
+
+function companyForScheduleLabel(companies: Company[], label: string) {
+  const key = normalizeUpper(label);
+  return companies.find((c) => normalizeUpper(c.name) === key) ?? null;
+}
+
+function periodKeyFromDateKey(payFrequency: Company["payFrequency"], dateKey: string) {
+  const [y, m, d] = dateKey.split("-");
+  const year = Number(y);
+  const month1Based = Number(m);
+  const day = Number(d);
+  if (!Number.isFinite(year) || !Number.isFinite(month1Based) || !Number.isFinite(day)) return null;
+  if (payFrequency === "monthly") {
+    return buildPeriodKey("monthly", year, month1Based);
+  }
+  return buildPeriodKey("biweekly", year, month1Based, day <= 15 ? 1 : 2);
+}
+
+function addCurrencyTotal(
+  totals: Partial<Record<Company["currency"], number>>,
+  currency: Company["currency"],
+  amount: number,
+) {
+  totals[currency] = (totals[currency] ?? 0) + amount;
+}
+
+function diffLabel(diffAmount: number) {
+  if (diffAmount > 0) return "Pagaron de mas";
+  if (diffAmount < 0) return "Pagaron de menos";
+  return "Pago exacto";
 }
 
 export function PayslipsView({ uid }: Props) {
@@ -127,6 +161,120 @@ export function PayslipsView({ uid }: Props) {
     if (selectedGross == null) return null;
     return computeColombiaPayrollDeductions(selectedGross);
   }, [selectedCompany, selectedGross]);
+
+  const payslipScheduleRange = useMemo(() => {
+    if (!payslips.length) {
+      const start = period.start;
+      const end = period.end;
+      return {
+        startKey: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`,
+        endKey: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`,
+      };
+    }
+
+    let minStart = payslips[0].periodStart.toDate();
+    let maxEnd = payslips[0].periodEnd.toDate();
+    for (const item of payslips) {
+      const start = item.periodStart.toDate();
+      const end = item.periodEnd.toDate();
+      if (start < minStart) minStart = start;
+      if (end > maxEnd) maxEnd = end;
+    }
+
+    return {
+      startKey: `${minStart.getFullYear()}-${String(minStart.getMonth() + 1).padStart(2, "0")}-${String(minStart.getDate()).padStart(2, "0")}`,
+      endKey: `${maxEnd.getFullYear()}-${String(maxEnd.getMonth() + 1).padStart(2, "0")}-${String(maxEnd.getDate()).padStart(2, "0")}`,
+    };
+  }, [payslips, period.end, period.start]);
+
+  const payslipSchedules = useScheduleEntries(uid, payslipScheduleRange);
+
+  const projectedByPayslipId = useMemo(() => {
+    const hourlyCompanies = companies.filter(
+      (company) =>
+        company.payType === "hourly" &&
+        typeof company.hourlyRate === "number" &&
+        Number.isFinite(company.hourlyRate) &&
+        company.hourlyRate > 0,
+    );
+
+    const hourlyProjectedByBucket = new Map<string, number>();
+    for (const entry of payslipSchedules.entries) {
+      const label =
+        entry.institutionKind === "OTRA"
+          ? entry.institutionName?.trim()
+            ? normalizeUpper(entry.institutionName.trim())
+            : "OTRA"
+          : entry.institutionKind;
+      const company = companyForScheduleLabel(hourlyCompanies, label);
+      if (!company || typeof company.hourlyRate !== "number") continue;
+
+      const bucketPeriodKey = periodKeyFromDateKey(company.payFrequency, entry.dateKey);
+      if (!bucketPeriodKey) continue;
+
+      const minutes = Math.max(0, entry.endMinutes - entry.startMinutes);
+      const projectedAmount = (minutes / minutesPerHourUnit(entry.institutionKind)) * company.hourlyRate;
+      const bucketKey = `${company.id}::${bucketPeriodKey}`;
+      hourlyProjectedByBucket.set(bucketKey, (hourlyProjectedByBucket.get(bucketKey) ?? 0) + projectedAmount);
+    }
+
+    const out = new Map<string, number | null>();
+    for (const payslip of payslips) {
+      const company = companies.find((item) => item.id === payslip.companyId) ?? null;
+      if (!company) {
+        out.set(payslip.id, null);
+        continue;
+      }
+
+      if (company.payType === "fixed") {
+        const projected =
+          typeof company.fixedSalary === "number" &&
+          Number.isFinite(company.fixedSalary) &&
+          company.fixedSalary > 0
+            ? company.fixedSalary
+            : null;
+        out.set(payslip.id, projected);
+        continue;
+      }
+
+      const projected = hourlyProjectedByBucket.get(`${company.id}::${payslip.periodKey}`) ?? null;
+      out.set(payslip.id, projected);
+    }
+
+    return out;
+  }, [companies, payslipSchedules.entries, payslips]);
+
+  const comparisonSummary = useMemo(() => {
+    const actual: Partial<Record<Company["currency"], number>> = {};
+    const projected: Partial<Record<Company["currency"], number>> = {};
+    const diff: Partial<Record<Company["currency"], number>> = {};
+    let comparedCount = 0;
+
+    for (const payslip of payslips) {
+      const projectedAmount = projectedByPayslipId.get(payslip.id) ?? null;
+      if (projectedAmount == null) continue;
+      comparedCount += 1;
+      addCurrencyTotal(actual, payslip.currency, payslip.amount);
+      addCurrencyTotal(projected, payslip.currency, projectedAmount);
+      addCurrencyTotal(diff, payslip.currency, payslip.amount - projectedAmount);
+    }
+
+    const currencies = Array.from(
+      new Set([
+        ...(Object.keys(actual) as Company["currency"][]),
+        ...(Object.keys(projected) as Company["currency"][]),
+        ...(Object.keys(diff) as Company["currency"][]),
+      ]),
+    ).sort((a, b) => a.localeCompare(b));
+
+    return {
+      comparedCount,
+      currencies,
+      actual,
+      projected,
+      diff,
+    };
+  }, [payslips, projectedByPayslipId]);
 
   async function handleCreate(input: PayslipInput) {
     try {
@@ -454,9 +602,77 @@ export function PayslipsView({ uid }: Props) {
         </div>
       ) : null}
 
+      {comparisonSummary.comparedCount > 0 ? (
+        <div className="rounded-3xl border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 shadow-sm md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-extrabold text-[color:var(--color-foreground)]">
+                Resumen de comparacion
+              </div>
+              <div className="mt-1 text-xs text-[color:var(--color-muted)]">
+                {comparisonSummary.comparedCount} colillas con proyeccion disponible.
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+            {comparisonSummary.currencies.map((currency) => {
+              const actual = comparisonSummary.actual[currency] ?? 0;
+              const projected = comparisonSummary.projected[currency] ?? 0;
+              const diff = comparisonSummary.diff[currency] ?? 0;
+              const toneClass =
+                diff > 0
+                  ? "bg-[color:var(--postit-green)]"
+                  : diff < 0
+                    ? "bg-[color:var(--postit-pink)]"
+                    : "bg-[color:var(--color-surface-2)]";
+
+              return (
+                <div
+                  key={currency}
+                  className={["rounded-3xl border border-[color:var(--color-border)] p-4", toneClass].join(" ")}
+                >
+                  <div className="text-[11px] font-extrabold uppercase tracking-wide text-[color:var(--color-muted)]">
+                    {currency}
+                  </div>
+                  <div className="mt-3 space-y-2 text-xs font-semibold">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[color:var(--color-muted)]">Total real</span>
+                      <span className="text-[color:var(--color-foreground)]">
+                        {formatMoney(actual, currency)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[color:var(--color-muted)]">Total proyectado</span>
+                      <span className="text-[color:var(--color-foreground)]">
+                        {formatMoney(projected, currency)}
+                      </span>
+                    </div>
+                    <div className="border-t border-[color:var(--color-border)] pt-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[color:var(--color-muted)]">{diffLabel(diff)}</span>
+                        <span className="font-extrabold text-[color:var(--color-foreground)]">
+                          {diff > 0
+                            ? `+${formatMoney(diff, currency)}`
+                            : diff < 0
+                              ? `-${formatMoney(Math.abs(diff), currency)}`
+                              : formatMoney(0, currency)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {payslips.map((p, idx) => {
           const companyForPayslip = companies.find((c) => c.id === p.companyId);
+          const projectedAmount = projectedByPayslipId.get(p.id) ?? null;
+          const deltaAmount = projectedAmount == null ? null : p.amount - projectedAmount;
           const hex = companyForPayslip?.colorHex?.trim()
             ? normalizeHex(companyForPayslip.colorHex)
             : "";
@@ -487,6 +703,20 @@ export function PayslipsView({ uid }: Props) {
           const iconButtonClass = dark
             ? "border-white/40 bg-white/90 text-[color:var(--color-foreground)]"
             : "border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-foreground)]";
+          const deltaToneClass =
+            deltaAmount == null
+              ? ""
+              : deltaAmount > 0
+                ? dark
+                  ? "text-white"
+                  : "text-emerald-700"
+                : deltaAmount < 0
+                  ? dark
+                    ? "text-white"
+                    : "text-rose-700"
+                  : dark
+                    ? "text-white"
+                    : "text-slate-700";
 
           return (
             <div
@@ -511,6 +741,26 @@ export function PayslipsView({ uid }: Props) {
                   <div className={["mt-2 text-sm font-semibold", titleClass].join(" ")}>
                     {formatMoney(p.amount, p.currency)}
                   </div>
+
+                  {projectedAmount != null ? (
+                    <div className={["mt-2 rounded-2xl border px-3 py-2 text-xs font-semibold", dark ? "border-white/25 bg-white/10 text-white/90" : "border-[color:var(--color-border)] bg-white/60 text-[color:var(--color-foreground)]"].join(" ")}>
+                      <div>
+                        Proyectado: <span className="font-extrabold">{formatMoney(projectedAmount, p.currency)}</span>
+                      </div>
+                      <div className={deltaToneClass}>
+                        {deltaAmount == null ? "Diferencia" : diffLabel(deltaAmount)}:{" "}
+                        <span className="font-extrabold">
+                          {deltaAmount == null
+                            ? "—"
+                            : deltaAmount > 0
+                              ? `+${formatMoney(deltaAmount, p.currency)}`
+                              : deltaAmount < 0
+                                ? `-${formatMoney(Math.abs(deltaAmount), p.currency)}`
+                                : formatMoney(0, p.currency)}
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {isCesdeCompany(p.companyName) ? (
                     <div className={["mt-2 text-xs font-semibold", mutedClass].join(" ")}>

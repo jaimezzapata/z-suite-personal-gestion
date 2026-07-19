@@ -22,6 +22,7 @@ export type Expense = {
   amount: number;
   currency: ExpenseCurrency;
   category: ExpenseCategory;
+  counterpartyName?: string | null;
   date: Timestamp;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
@@ -30,4 +31,5 @@ export type Expense = {
 export type ExpenseInput = {
   amount: number;
   category: ExpenseCategory;
+  counterpartyName?: string | null;
 };
